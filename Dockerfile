@@ -5,7 +5,7 @@ EXPOSE 80
 WORKDIR /app
 COPY . ./
 
-RUN javac ./src/SimpleServer.java
+RUN javac ./src/SimpleServer.java -d ./bin/
 
 WORKDIR ./bin
 
