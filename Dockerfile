@@ -9,4 +9,4 @@ RUN javac ./src/SimpleServer.java
 
 WORKDIR ./bin
 
-CMD ["java", "SimpleServer"]
+CMD ["java", "SimpleServer", "80"]

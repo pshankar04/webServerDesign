@@ -53,7 +53,8 @@ public class SimpleServer {
 
 		try {
 			// Get the port to listen on
-			int port = 8080;
+			int port = Integer.parseInt(args[0]);
+			System.out.println(port);
 			LinkedHashMap<String,String> headerMap = new LinkedHashMap<String,String>();
 			// Create a ServerSocket to listen on that port.
 			ServerSocket ss = new ServerSocket(port);
