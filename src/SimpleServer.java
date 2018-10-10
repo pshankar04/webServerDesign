@@ -35,7 +35,6 @@ public class SimpleServer {
 
 		try {
 			int port = Integer.parseInt(args[0]);
-			System.out.println(port);
 			LinkedHashMap<String,String> headerMap = new LinkedHashMap<String,String>();
 			ServerSocket ss = new ServerSocket(port);
 			 
@@ -78,11 +77,7 @@ public class SimpleServer {
 				if(count < 3){
 					malformedHeader = true;
 				}
-				System.out.println("Final MAP :"+headerMap);
-
-
-
-
+			
 				Iterator<Map.Entry<String, String>> it = headerMap.entrySet().iterator();
 				while (it.hasNext()) {
 					Map.Entry<String,String> pair = (Map.Entry<String,String>)it.next();
@@ -108,8 +103,6 @@ public class SimpleServer {
 				System.out.println("host:"+host);
 				System.out.println("connection:"+connection);
 				fileRequested = java.net.URLDecoder.decode(fileRequested, "UTF-8");
-
-				System.out.println("fileRequested URL decode :"+fileRequested);
 
 				if(!httpVersion.equals("HTTP/1.1")){
 					incorrectVersion = true;
@@ -139,19 +132,15 @@ public class SimpleServer {
 					}
 
 				}
-				System.out.println("fileRequested is :"+fileRequested);
+				
 				File file = new File(fileRequested);
-				String fileLength = String.valueOf(file.length());
-				System.out.println("File Length:"+fileLength);
-
+				String fileLength = String.valueOf(file.length());				
 				String content = getContentType(fileRequested,method);
-				System.out.println("File :"+file);
 
-				if (method.equals("GET")) { 
-					System.out.println("Inside GET :"+fileRequested);
+				if (method.equals("GET")) { 					
 					boolean isFileAvailable = checkAvailability(fileRequested);
 					if(placeholderTest){
-						System.out.println("Place Holder");
+						
 						out.print("999 \r\n");  									 
 						out.print("Connection: Alive123\r\n");  
 						out.print("\r\n\r\n");	
@@ -183,13 +172,12 @@ public class SimpleServer {
 						if(isFileAvailable){
 							File fileNow = null;
 							String fileNewName = "";
-							System.out.println("File Available :"+isFileAvailable+" : "+fileRequested);
+							
 							if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
 								fileNewName = "."+fileRequested;
 								fileNow = new File(fileNewName);
 								newfileLength =  fileNow.length();
-								System.out.println("LENGTH LONG :"+newfileLength);
-								System.out.println("EXISTS Here :"+fileNow.exists());
+							 
 							}else{
 								fileNewName = fileRequested;
 								fileNow = new File(fileNewName);
@@ -198,14 +186,14 @@ public class SimpleServer {
 
 							verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
 							if(fileNow.exists() && verifiedCaseFile){
-								System.out.println("LEN:"+newfileLength);
+								 
 								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +new Date()+"\r\n" + "Connection: close\r\n";
 								dataOut.write(str.getBytes());
 								dataOut.write("\r\n".getBytes());
 								
 								if(fileRequested.contains(".jpeg") || fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
 										fileRequested.contains(".txt") || fileRequested.contains("directory3isempty")){
-									System.out.println("Here");
+									 
 									FileReader fr = new FileReader("."+fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
@@ -215,7 +203,7 @@ public class SimpleServer {
 									dataOut.flush();
 								}
 								else if(fileRequested.contains(".gif")){
-									System.out.println("Here");
+									 
 									FileReader fr = new FileReader("."+fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
@@ -229,7 +217,7 @@ public class SimpleServer {
 								}
 								 								
 							}else{
-								System.out.println("LEN else:"+fileLength);
+								 
 								out.print("HTTP/1.1 404 Not Found\r\n");  
 								out.print("Content-Type: "+content+"\r\n");
 								out.print("Content-Length: "+fileLength+"\r\n");
@@ -249,10 +237,8 @@ public class SimpleServer {
 				}
 
 				if (method.equals("HEAD")) { 
-					System.out.println("Inside HEAD :"+fileRequested);
 					boolean isFileAvailable = checkAvailability(fileRequested);
-					if(isFileAvailable){
-						System.out.println("File Available :"+isFileAvailable+" : "+fileRequested);
+					if(isFileAvailable){						
 						out.print("HTTP/1.1 200 OK\r\n");  
 						out.print("Content-Type: "+content+"\r\n");						
 						out.print("\r\n");
@@ -291,14 +277,12 @@ public class SimpleServer {
 				}
 
 				if (method.equals("POST")) { 
-					System.out.println("Inside POST :"+fileRequested);
 					out.print("HTTP/1.1 501 Not Implemented\r\n"); 
 					out.print("Content-Type: "+content+"\r\n");						
 					out.print("\r\n");
 				}
 
 				if (method.equals("OPTIONS")) { 
-					System.out.println("Inside OPTIONS :"+fileRequested);
 					String allowedMethods = "";
 					for(String method: allowList)
 						allowedMethods += method;
@@ -318,32 +302,22 @@ public class SimpleServer {
 		 
 		catch (Exception e) {
 			e.printStackTrace();
-			System.err.println("Usage: java HttpMirror <port>");
 		}
 	}
 
 	public static boolean checkAvailability(String fileName){
 
 		if(fileName.indexOf('/') == fileName.lastIndexOf('/')){
-			System.out.println("PATH 1 :"+fileName);
 			File f = new File(fileName);
-
-			System.out.println("EXISTS 1 : "+Files.exists(f.toPath()));
 			return Files.exists(f.toPath());
 		}
 		else if(fileName.indexOf('/') >= 0 && fileName.lastIndexOf('/') > 0){
 			fileName = "."+fileName;
-			System.out.println("PATH 2:"+fileName);
 			File f = new File(fileName);
-
-			System.out.println("EXISTS 2 : "+Files.exists(f.toPath()));
 			return Files.exists(f.toPath());
 		}
 		else{
-			System.out.println("PATH 3 :"+fileName);
 			File f = new File(fileName);
-
-			System.out.println("EXISTS 3 : "+Files.exists(f.toPath()));
 			return Files.exists(f.toPath());
 		}
 	}
@@ -365,12 +339,9 @@ public class SimpleServer {
  
 	
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
-		System.out.println("URL Encoded ---"+fileDir);
+		//System.out.println("URL Encoded ---"+fileDir);
 		String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
 		fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
-		
-		System.out.println("fileName "+fileName);
-		System.out.println("fileDir "+fileDir);
 		File file = new File(fileDir);
 		String[] files = file.list();
 	    for(String f : files){
