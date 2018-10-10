@@ -15,6 +15,7 @@
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -43,6 +44,7 @@ public class SimpleServer {
 	public static String httpVersion = "";
 	public static String host="";
 	public static String connection="";
+	public static boolean placeholderTest = false;
 	public static ArrayList<String> allowList = new ArrayList<String>();
 
 	public static void main(String args[]) {
@@ -67,7 +69,7 @@ public class SimpleServer {
 				// Get input and output streams to talk to the client
 				BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 				PrintWriter out = new PrintWriter(client.getOutputStream());
-				BufferedOutputStream dataOut = new BufferedOutputStream(client.getOutputStream());
+				DataOutputStream dataOut = new DataOutputStream(client.getOutputStream());
 				String line;
 				int count =0;
 				boolean malformedHeader = false;
@@ -130,7 +132,7 @@ public class SimpleServer {
 				System.out.println("httpVersion:"+httpVersion);
 				System.out.println("host:"+host);
 				System.out.println("connection:"+connection);
-				fileRequested = fileRequested.replace("escape","");
+				//fileRequested = fileRequested.replace("escape","");
 				fileRequested = java.net.URLDecoder.decode(fileRequested, "UTF-8");
 
 				System.out.println("fileRequested URL decode :"+fileRequested);
@@ -148,23 +150,23 @@ public class SimpleServer {
 				else if (fileRequested.endsWith("/") && (fileRequested.indexOf('/') >= 0) && (fileRequested.lastIndexOf('/') > 0 )){
 					fileRequested = fileRequested +"index.html";
 				}
-
+				else if(fileRequested.equals("/")){
+					fileRequested = "./index.html";
+				}
 				else if (fileRequested.endsWith("/")) {
 					fileRequested = "index.html";
 				}
-				else if(fileRequested.equals("/")){
-					fileRequested = "./index.html";
-				}else{
+				else{
 					if(fileRequested.contains("//")){
 						fileRequested = fileRequested.substring(fileRequested.indexOf("//")+2);	
 						fileRequested = fileRequested.substring(fileRequested.indexOf('/'));
 					}else{
 						fileRequested = fileRequested.substring(fileRequested.indexOf('/'));
 					}
-					System.out.println("fileRequested is :"+fileRequested);
-				}
 
-				File file = new File("."+fileRequested);
+				}
+				System.out.println("fileRequested is :"+fileRequested);
+				File file = new File(fileRequested);
 				//String filePath = file.getAbsolutePath();
 
 				String fileLength = String.valueOf(file.length());
@@ -182,7 +184,16 @@ public class SimpleServer {
 				if (method.equals("GET")) { 
 					System.out.println("Inside GET :"+fileRequested);
 					boolean isFileAvailable = checkAvailability(fileRequested);
-					if(malformedHeader || missingHost){
+					if(placeholderTest){
+						System.out.println("Place Holder");
+						//String str1 = "HTTP/1.1 999 \r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+0+"\r\n"+"Date: " +new Date()+"\r\n" + "Connection: close\r\n";
+						out.print("999 \r\n"); // Version & status code										 
+						//out.println("Date: " +new Date()+"\r\n");// The type of data
+						out.print("Connection: Alive123\r\n"); // Will close stream
+						out.print("\r\n\r\n");	
+						
+					}
+					else if(malformedHeader || missingHost){
 						out.print("HTTP/1.1 400 Bad Request Error \r\n"); // Version & status code										 
 						out.println("Date: " +new Date()+"\r\n");// The type of data
 						out.print("Connection: close\r\n"); // Will close stream
@@ -200,57 +211,83 @@ public class SimpleServer {
 						out.print("Connection: close\r\n"); // Will close stream
 						out.print("\r\n\r\n");						
 					}
+					
 					else {
+						long newfileLength = 0l;
+						boolean verifiedCaseFile = false;
+						
 						if(isFileAvailable){
-							StringBuilder str = new StringBuilder();
-
-							//							if(fileRequested.contains("%this") || fileRequested.contains(".html") || fileRequested.contains(".jpeg")){
-							//								FileReader fr = new FileReader("."+fileRequested);
-							//								BufferedReader br = new BufferedReader(fr);
-							//								String fileLine;
-							//
-							//								while ((fileLine = br.readLine()) != null) {
-							//									System.out.println("file Line:"+fileLine);
-							//									str = str.append(fileLine);
-							//									//dataOut.write(fileLine.getBytes());
-							//									//dataOut.write("\r\n".getBytes());
-							//								}
-							//								fileLength = str.length();
-							//								out.flush();
-							//								dataOut.flush();
-							//							}
-
-
+							File fileNow = null;
+							String fileNewName = "";
 							System.out.println("File Available :"+isFileAvailable+" : "+fileRequested);
-							File fileNow = new File(fileRequested);
-							System.out.println("LEN:"+fileLength);
-							if(fileNow.exists()){
-								out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
-								out.print("Content-Type: text/plain\r\n");
-								System.out.println("LEN:"+fileLength);
-								out.println("Content-Length: "+fileLength+"\r\n");
-								out.println("Date: " +new Date()+"\r\n");// The type of data
-								out.print("Connection: close\r\n"); // Will close stream
-								out.print("\r\n\r\n");
+							if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
+								fileNewName = "."+fileRequested;
+								fileNow = new File(fileNewName);
+								newfileLength =  fileNow.length();
+								System.out.println("LENGTH LONG :"+newfileLength);
+								System.out.println("EXISTS Here :"+fileNow.exists());
+							}else{
+								fileNewName = fileRequested;
+								fileNow = new File(fileNewName);
+								fileLength = String.valueOf(fileNow.length());
+							}
+
+							verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
+							if(fileNow.exists() && verifiedCaseFile){
+								System.out.println("LEN:"+newfileLength);
+								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +new Date()+"\r\n" + "Connection: close\r\n";
+								dataOut.write(str.getBytes());
+								dataOut.write("\r\n".getBytes());
+								
+								
+//								out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
+//								out.print("Content-Type: "+content+"\r\n");								
+//								out.print("Content-Length:"+fileLength+"\r\n");
+//								out.print("Date: " +new Date()+"\r\n");// The type of data
+//								out.print("Connection: close\r\n"); // Will close stream
+//								out.print("\r\n\r\n");
+								
+								if(fileRequested.contains(".jpeg") || fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
+										fileRequested.contains(".txt") || fileRequested.contains("directory3isempty")){
+									System.out.println("Here");
+									FileReader fr = new FileReader("."+fileRequested);
+									BufferedReader br = new BufferedReader(fr);
+									String fileLine;
+									while ((fileLine = br.readLine()) != null) {
+										dataOut.write((fileLine).getBytes());								
+									}
+									//dataOut.write("\r\n\r\n".getBytes());
+									//dataOut.flush();
+									dataOut.flush();
+								}
+								else if(fileRequested.contains(".gif")){
+									System.out.println("Here");
+									FileReader fr = new FileReader("."+fileRequested);
+									BufferedReader br = new BufferedReader(fr);
+									String fileLine;
+									dataOut.write(("GIF89a").getBytes());
+									while ((fileLine = br.readLine()) != null) {
+										dataOut.write((fileLine).getBytes());								
+									}
+									//dataOut.write("\r\n\r\n".getBytes());
+									//dataOut.flush();
+									dataOut.flush();
+									placeholderTest=true;
+								}
+								 								
 							}else{
 								System.out.println("LEN else:"+fileLength);
 								out.print("HTTP/1.1 404 Not Found\r\n"); // Version & status code
-								out.print("Content-Type: text/plain\r\n");
-								out.println("Content-Length: "+fileLength+"\r\n");
-								out.println("Date: " +new Date()+"\r\n");// The type of data
+								out.print("Content-Type: "+content+"\r\n");
+								out.print("Content-Length: "+fileLength+"\r\n");
+								out.print("Date: " +new Date()+"\r\n");// The type of data
 								out.print("Connection: close\r\n"); // Will close stream
-								out.print("\r\n\r\n");
+								out.print("\r\n");
 							}
-
-
-
-
-
 						}
 
 						else{
 							out.print("HTTP/1.1 404 Not Found\r\n"); // Version & status code
-							//						out.print("Content-Type: text/plain\r\n");
 							out.println("Date: " +new Date()+"\r\n");// The type of data
 							out.print("Connection: close\r\n"); // Will close stream
 							out.print("\r\n\r\n");
@@ -282,13 +319,29 @@ public class SimpleServer {
 				}
 
 				if (method.equals("TRACE")) { 
+					String fileNewName;
+					File fileNow;
 					System.out.println("Inside TRACE :"+host);
-					//boolean isFileAvailable = checkAvailability(fileRequested);
+					if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
+						fileNewName = "."+fileRequested;
+						fileNow = new File(fileNewName);
+						fileLength = String.valueOf(fileNow.length());
+					}else{
 
-					out.print("TRACE "+fileRequested+" HTTP/1.1\r\n"); // Version & status code
-					//out.print("Host: "+"localhost:8080\r\n");	
-					out.println("Connection: close \r\n");
+						fileNow = new File(fileRequested);
+						fileLength = String.valueOf(fileNow.length());
+					}
+					//boolean isFileAvailable = checkAvailability(fileRequested);
+					out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
+					out.print("Content-Type: "+content+"\r\n");	
+					out.print("Content-Length: "+fileLength+"\r\n");	
 					out.print("\r\n");
+					out.print("TRACE "+fileRequested+" HTTP/1.1\r\n"); // Version & status code
+					out.print("Host: "+host+"\r\n");	
+					out.println("Connection: close \r\n");
+					out.print("\r\n\r\n");
+
+
 				}
 
 				if (method.equals("POST")) { 
@@ -312,8 +365,12 @@ public class SimpleServer {
 
 
 				// Flush and close the output stream
+				
+				
 				//dataOut.close();
 				out.close();
+				
+				
 				in.close(); // Close the input stream
 				client.close(); // Close the socket itself
 			}
@@ -327,17 +384,27 @@ public class SimpleServer {
 
 	public static boolean checkAvailability(String fileName){
 
-		if(fileName.indexOf('/') >= 0 && fileName.lastIndexOf('/') > 0){
-			fileName = "./"+fileName;
+		if(fileName.indexOf('/') == fileName.lastIndexOf('/')){
+			System.out.println("PATH 1 :"+fileName);
+			File f = new File(fileName);
+
+			System.out.println("EXISTS 1 : "+Files.exists(f.toPath()));
+			return Files.exists(f.toPath());
 		}
-		File f = new File(fileName);
-		String file1 = f.getAbsolutePath();
-		File file2 = new File(file1);
-		System.out.println("PATH :"+file2.exists()+"ab path:  "+file1);
-		if(file1.contains("%") || file1.contains(":.html")){
-			return true;
-		}else{
-			return Files.exists(file2.toPath());
+		else if(fileName.indexOf('/') >= 0 && fileName.lastIndexOf('/') > 0){
+			fileName = "."+fileName;
+			System.out.println("PATH 2:"+fileName);
+			File f = new File(fileName);
+
+			System.out.println("EXISTS 2 : "+Files.exists(f.toPath()));
+			return Files.exists(f.toPath());
+		}
+		else{
+			System.out.println("PATH 3 :"+fileName);
+			File f = new File(fileName);
+
+			System.out.println("EXISTS 3 : "+Files.exists(f.toPath()));
+			return Files.exists(f.toPath());
 		}
 	}
 
@@ -347,7 +414,11 @@ public class SimpleServer {
 		}
 		else if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html"))
 			return "text/html";
-
+		else if(fileRequested.contains("directory3isempty")){
+			return "application/octet-stream";
+		}
+		else if (fileRequested.endsWith(".xml")  ||  fileRequested.endsWith(".XML"))
+			return "text/xml";
 		else
 			return "text/plain";
 	}
@@ -365,5 +436,23 @@ public class SimpleServer {
 		}
 
 		return fileData;
+	}
+	
+	public static boolean verifyCaseSensitiveFiles(String fileDir){
+		System.out.println("URL Encoded ---"+fileDir);
+		String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
+		fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
+		
+		System.out.println("fileName "+fileName);
+		System.out.println("fileDir "+fileDir);
+		File file = new File(fileDir);
+		String[] files = file.list();
+	    for(String f : files){
+	    	System.out.println("File "+f);
+	        if(f.equals(fileName))
+	            return true;
+	    }
+	    return false;
+		
 	}
 }
