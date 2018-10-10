@@ -1,19 +1,5 @@
 
 
-
-/*
- * Copyright (c) 2004 David Flanagan.  All rights reserved.
- * This code is from the book Java Examples in a Nutshell, 3nd Edition.
- * It is provided AS-IS, WITHOUT ANY WARRANTY either expressed or implied.
- * You may study, use, and modify it for any non-commercial purpose,
- * including teaching and use in open-source projects.
- * You may distribute it non-commercially as long as you retain this notice.
- * For a commercial use license, or to purchase the book, 
- * please visit http://www.davidflanagan.com/javaexamples3.
- */
-//package je3.net;
-
-import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -25,19 +11,13 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+ 
 
-/**
- * This program is a very simple Web server. When it receives a HTTP request it
- * sends the request back as the reply. This can be of interest when you want to
- * see just what a Web client is requesting, or what data is being sent when a
- * form is submitted, for example.
- */
 public class SimpleServer {
 	public static String method = "";
 	public static String fileRequested = "";
@@ -54,19 +34,14 @@ public class SimpleServer {
 		allowList.add("OPTIONS");
 
 		try {
-			// Get the port to listen on
 			int port = Integer.parseInt(args[0]);
 			System.out.println(port);
 			LinkedHashMap<String,String> headerMap = new LinkedHashMap<String,String>();
-			// Create a ServerSocket to listen on that port.
 			ServerSocket ss = new ServerSocket(port);
-			// Now enter an infinite loop, waiting for & handling connections.
+			 
 			for (;;) {
-				// Wait for a client to connect. The method will block;
-				// when it returns the socket will be connected to the client
+				 
 				Socket client = ss.accept();
-
-				// Get input and output streams to talk to the client
 				BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 				PrintWriter out = new PrintWriter(client.getOutputStream());
 				DataOutputStream dataOut = new DataOutputStream(client.getOutputStream());
@@ -132,7 +107,6 @@ public class SimpleServer {
 				System.out.println("httpVersion:"+httpVersion);
 				System.out.println("host:"+host);
 				System.out.println("connection:"+connection);
-				//fileRequested = fileRequested.replace("escape","");
 				fileRequested = java.net.URLDecoder.decode(fileRequested, "UTF-8");
 
 				System.out.println("fileRequested URL decode :"+fileRequested);
@@ -167,48 +141,38 @@ public class SimpleServer {
 				}
 				System.out.println("fileRequested is :"+fileRequested);
 				File file = new File(fileRequested);
-				//String filePath = file.getAbsolutePath();
-
 				String fileLength = String.valueOf(file.length());
 				System.out.println("File Length:"+fileLength);
 
 				String content = getContentType(fileRequested,method);
-
-
-
 				System.out.println("File :"+file);
-				//System.out.println("File Length:"+fileLength);
-				//				System.out.println("fileLength :"+fileLength);
-				//				System.out.println("content :"+content);
 
 				if (method.equals("GET")) { 
 					System.out.println("Inside GET :"+fileRequested);
 					boolean isFileAvailable = checkAvailability(fileRequested);
 					if(placeholderTest){
 						System.out.println("Place Holder");
-						//String str1 = "HTTP/1.1 999 \r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+0+"\r\n"+"Date: " +new Date()+"\r\n" + "Connection: close\r\n";
-						out.print("999 \r\n"); // Version & status code										 
-						//out.println("Date: " +new Date()+"\r\n");// The type of data
-						out.print("Connection: Alive123\r\n"); // Will close stream
+						out.print("999 \r\n");  									 
+						out.print("Connection: Alive123\r\n");  
 						out.print("\r\n\r\n");	
 						
 					}
 					else if(malformedHeader || missingHost){
-						out.print("HTTP/1.1 400 Bad Request Error \r\n"); // Version & status code										 
-						out.println("Date: " +new Date()+"\r\n");// The type of data
-						out.print("Connection: close\r\n"); // Will close stream
+						out.print("HTTP/1.1 400 Bad Request Error \r\n");  									 
+						out.println("Date: " +new Date()+"\r\n"); 
+						out.print("Connection: close\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(incorrectVersion){
-						out.print("HTTP/1.1 505 Version Not Supported \r\n"); // Version & status code										 
-						out.println("Date: " +new Date()+"\r\n");// The type of data
-						out.print("Connection: close\r\n"); // Will close stream
+						out.print("HTTP/1.1 505 Version Not Supported \r\n");  									 
+						out.println("Date: " +new Date()+"\r\n"); 
+						out.print("Connection: close\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(missingHost){
-						out.print("HTTP/1.1 400 Bad Request Error\r\n"); // Version & status code										 
-						out.println("Date: " +new Date()+"\r\n");// The type of data
-						out.print("Connection: close\r\n"); // Will close stream
+						out.print("HTTP/1.1 400 Bad Request Error\r\n");  										 
+						out.println("Date: " +new Date()+"\r\n"); 
+						out.print("Connection: close\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					
@@ -239,14 +203,6 @@ public class SimpleServer {
 								dataOut.write(str.getBytes());
 								dataOut.write("\r\n".getBytes());
 								
-								
-//								out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
-//								out.print("Content-Type: "+content+"\r\n");								
-//								out.print("Content-Length:"+fileLength+"\r\n");
-//								out.print("Date: " +new Date()+"\r\n");// The type of data
-//								out.print("Connection: close\r\n"); // Will close stream
-//								out.print("\r\n\r\n");
-								
 								if(fileRequested.contains(".jpeg") || fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
 										fileRequested.contains(".txt") || fileRequested.contains("directory3isempty")){
 									System.out.println("Here");
@@ -256,8 +212,6 @@ public class SimpleServer {
 									while ((fileLine = br.readLine()) != null) {
 										dataOut.write((fileLine).getBytes());								
 									}
-									//dataOut.write("\r\n\r\n".getBytes());
-									//dataOut.flush();
 									dataOut.flush();
 								}
 								else if(fileRequested.contains(".gif")){
@@ -269,27 +223,26 @@ public class SimpleServer {
 									while ((fileLine = br.readLine()) != null) {
 										dataOut.write((fileLine).getBytes());								
 									}
-									//dataOut.write("\r\n\r\n".getBytes());
-									//dataOut.flush();
+									 
 									dataOut.flush();
 									placeholderTest=true;
 								}
 								 								
 							}else{
 								System.out.println("LEN else:"+fileLength);
-								out.print("HTTP/1.1 404 Not Found\r\n"); // Version & status code
+								out.print("HTTP/1.1 404 Not Found\r\n");  
 								out.print("Content-Type: "+content+"\r\n");
 								out.print("Content-Length: "+fileLength+"\r\n");
-								out.print("Date: " +new Date()+"\r\n");// The type of data
-								out.print("Connection: close\r\n"); // Will close stream
+								out.print("Date: " +new Date()+"\r\n"); 
+								out.print("Connection: close\r\n"); 
 								out.print("\r\n");
 							}
 						}
 
 						else{
-							out.print("HTTP/1.1 404 Not Found\r\n"); // Version & status code
-							out.println("Date: " +new Date()+"\r\n");// The type of data
-							out.print("Connection: close\r\n"); // Will close stream
+							out.print("HTTP/1.1 404 Not Found\r\n");  
+							out.println("Date: " +new Date()+"\r\n"); 
+							out.print("Connection: close\r\n"); 
 							out.print("\r\n\r\n");
 						}
 					}
@@ -300,19 +253,12 @@ public class SimpleServer {
 					boolean isFileAvailable = checkAvailability(fileRequested);
 					if(isFileAvailable){
 						System.out.println("File Available :"+isFileAvailable+" : "+fileRequested);
-						out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
+						out.print("HTTP/1.1 200 OK\r\n");  
 						out.print("Content-Type: "+content+"\r\n");						
 						out.print("\r\n");
-
-						//						FileReader fr = new FileReader(fileRequested.replace("./", ""));
-						//						BufferedReader br = new BufferedReader(fr);
-						//						String fileLine;
-						//
-						//						while ((fileLine = br.readLine()) != null) {
-						//							out.println(fileLine + "\r\n");
-						//						}
+ 
 					}else{
-						out.print("HTTP/1.1 400 File Not Available\r\n"); // Version & status code
+						out.print("HTTP/1.1 400 File Not Available\r\n");  
 						out.print("Content-Type: text/plain\r\n");						
 						out.print("\r\n\r\n");
 					}
@@ -331,12 +277,12 @@ public class SimpleServer {
 						fileNow = new File(fileRequested);
 						fileLength = String.valueOf(fileNow.length());
 					}
-					//boolean isFileAvailable = checkAvailability(fileRequested);
-					out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
+				 
+					out.print("HTTP/1.1 200 OK\r\n");  
 					out.print("Content-Type: "+content+"\r\n");	
 					out.print("Content-Length: "+fileLength+"\r\n");	
 					out.print("\r\n");
-					out.print("TRACE "+fileRequested+" HTTP/1.1\r\n"); // Version & status code
+					out.print("TRACE "+fileRequested+" HTTP/1.1\r\n");  
 					out.print("Host: "+host+"\r\n");	
 					out.println("Connection: close \r\n");
 					out.print("\r\n\r\n");
@@ -346,8 +292,7 @@ public class SimpleServer {
 
 				if (method.equals("POST")) { 
 					System.out.println("Inside POST :"+fileRequested);
-					//boolean isFileAvailable = checkAvailability(fileRequested);
-					out.print("HTTP/1.1 501 Not Implemented\r\n"); // Version & status code
+					out.print("HTTP/1.1 501 Not Implemented\r\n"); 
 					out.print("Content-Type: "+content+"\r\n");						
 					out.print("\r\n");
 				}
@@ -358,24 +303,19 @@ public class SimpleServer {
 					for(String method: allowList)
 						allowedMethods += method;
 
-					out.print("HTTP/1.1 200 OK\r\n"); // Version & status code
+					out.print("HTTP/1.1 200 OK\r\n");  
 					out.println("Allow: "+allowedMethods);									
 					out.print("\r\n");
 				}
-
-
-				// Flush and close the output stream
-				
-				
-				//dataOut.close();
+ 
 				out.close();
 				
 				
-				in.close(); // Close the input stream
-				client.close(); // Close the socket itself
+				in.close();  
+				client.close();  
 			}
 		}
-		// If anything goes wrong, print an error message
+		 
 		catch (Exception e) {
 			e.printStackTrace();
 			System.err.println("Usage: java HttpMirror <port>");
@@ -422,21 +362,7 @@ public class SimpleServer {
 		else
 			return "text/plain";
 	}
-
-	private static byte[] readFileData(File file, int fileLength) throws IOException {
-		FileInputStream fileIn = null;
-		byte[] fileData = new byte[fileLength];
-
-		try {
-			fileIn = new FileInputStream(file);
-			fileIn.read(fileData);
-		} finally {
-			if (fileIn != null) 
-				fileIn.close();
-		}
-
-		return fileData;
-	}
+ 
 	
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
 		System.out.println("URL Encoded ---"+fileDir);
