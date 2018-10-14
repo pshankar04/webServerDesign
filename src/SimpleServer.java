@@ -25,6 +25,7 @@ public class SimpleServer {
 	public static String host="";
 	public static String connection="";
 	public static boolean placeholderTest = false;
+	public static String WEBROOT= "./public";
 	public static ArrayList<String> allowList = new ArrayList<String>();
 
 	public static void main(String args[]) {
@@ -96,12 +97,13 @@ public class SimpleServer {
 						connection = (String)pair.getValue();
 					}
 				}
-
+				
 				System.out.println("method:"+method);
 				System.out.println("fileRequested:"+fileRequested);
 				System.out.println("httpVersion:"+httpVersion);
 				System.out.println("host:"+host);
 				System.out.println("connection:"+connection);
+				
 				fileRequested = java.net.URLDecoder.decode(fileRequested, "UTF-8");
 
 				if(!httpVersion.equals("HTTP/1.1")){
@@ -132,21 +134,23 @@ public class SimpleServer {
 					}
 
 				}
-				
+				fileRequested = WEBROOT + fileRequested;
+				System.out.println("file Requested  123:"+fileRequested);
 				File file = new File(fileRequested);
 				String fileLength = String.valueOf(file.length());				
 				String content = getContentType(fileRequested,method);
 
 				if (method.equals("GET")) { 					
 					boolean isFileAvailable = checkAvailability(fileRequested);
-					if(placeholderTest){
-						
-						out.print("999 \r\n");  									 
-						out.print("Connection: Alive123\r\n");  
-						out.print("\r\n\r\n");	
-						
-					}
-					else if(malformedHeader || missingHost){
+//					if(placeholderTest){
+//						
+//						out.print("999 \r\n");  									 
+//						out.print("Connection: Alive123\r\n");  
+//						out.print("\r\n\r\n");	
+//						
+//					}
+					//else
+						if(malformedHeader || missingHost){
 						out.print("HTTP/1.1 400 Bad Request Error \r\n");  									 
 						out.println("Date: " +new Date()+"\r\n"); 
 						out.print("Connection: close\r\n");  
@@ -186,12 +190,12 @@ public class SimpleServer {
 
 							verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
 							if(fileNow.exists() && verifiedCaseFile){
-								 
+								 System.out.println("HERE");
 								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +new Date()+"\r\n" + "Connection: close\r\n";
 								dataOut.write(str.getBytes());
 								dataOut.write("\r\n".getBytes());
 								
-								if(fileRequested.contains(".jpeg") || fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
+								if(fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
 										fileRequested.contains(".txt") || fileRequested.contains("directory3isempty")){
 									 
 									FileReader fr = new FileReader("."+fileRequested);
@@ -215,7 +219,21 @@ public class SimpleServer {
 									dataOut.flush();
 									placeholderTest=true;
 								}
-								 								
+								else if(fileRequested.contains(".jpeg") || fileRequested.contains(".jpg")){
+									 
+									FileReader fr = new FileReader("."+fileRequested);
+									BufferedReader br = new BufferedReader(fr);
+									String fileLine;
+									
+									while ((fileLine = br.readLine()) != null) {
+										dataOut.writeBytes(fileLine+"\r\n");								
+									}
+									 
+									dataOut.flush();
+									 
+								}
+								
+								 	 								
 							}else{
 								 
 								out.print("HTTP/1.1 404 Not Found\r\n");  
@@ -244,7 +262,7 @@ public class SimpleServer {
 						out.print("\r\n");
  
 					}else{
-						out.print("HTTP/1.1 400 File Not Available\r\n");  
+						out.print("HTTP/1.1 400 Not Found\r\n");  
 						out.print("Content-Type: text/plain\r\n");						
 						out.print("\r\n\r\n");
 					}
@@ -284,16 +302,18 @@ public class SimpleServer {
 
 				if (method.equals("OPTIONS")) { 
 					String allowedMethods = "";
-					for(String method: allowList)
-						allowedMethods += method;
-
+					for(String method: allowList){
+						allowedMethods = allowedMethods+method +",";
+					}
+					allowedMethods = allowedMethods.substring(0,allowedMethods.length()-1);
+					
 					out.print("HTTP/1.1 200 OK\r\n");  
-					out.println("Allow: "+allowedMethods);									
-					out.print("\r\n");
+					out.print("Allow: "+allowedMethods+"\r\n");									
+					out.print("\r\n\r\n");
 				}
  
 				out.close();
-				
+				dataOut.close();
 				
 				in.close();  
 				client.close();  
@@ -331,8 +351,11 @@ public class SimpleServer {
 		else if(fileRequested.contains("directory3isempty")){
 			return "application/octet-stream";
 		}
-		else if (fileRequested.endsWith(".xml")  ||  fileRequested.endsWith(".XML"))
+		else if (fileRequested.endsWith(".xml")  ||  fileRequested.endsWith(".XML")){
 			return "text/xml";
+		}else if (fileRequested.endsWith(".jpeg")  ||  fileRequested.endsWith(".jpg")){
+			return "image/jpeg";
+		}
 		else
 			return "text/plain";
 	}
