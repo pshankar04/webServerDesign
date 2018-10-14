@@ -120,7 +120,7 @@ public class SimpleServer {
 					fileRequested = fileRequested +"index.html";
 				}
 				else if(fileRequested.equals("/")){
-					fileRequested = "./index.html";
+					fileRequested = "/index.html";
 				}
 				else if (fileRequested.endsWith("/")) {
 					fileRequested = "index.html";
@@ -226,7 +226,7 @@ public class SimpleServer {
 									String fileLine;
 									
 									while ((fileLine = br.readLine()) != null) {
-										dataOut.writeBytes(fileLine+"\r\n");								
+										dataOut.writeBytes(fileLine);								
 									}
 									 
 									dataOut.flush();
@@ -281,7 +281,8 @@ public class SimpleServer {
 						fileNow = new File(fileRequested);
 						fileLength = String.valueOf(fileNow.length());
 					}
-				 
+					fileRequested = fileRequested.replace("./public","");
+					System.out.println("Here :"+fileRequested);
 					out.print("HTTP/1.1 200 OK\r\n");  
 					out.print("Content-Type: "+content+"\r\n");	
 					out.print("Content-Length: "+fileLength+"\r\n");	
