@@ -128,7 +128,7 @@ public class SimpleServer {
 					fileRequested = fileRequested +"index.html";
 				}
 				else if(fileRequested.equals("/")){
-					fileRequested = "/index.html";
+					fileRequested = "/";
 				}
 				else if (fileRequested.endsWith("/")) {
 					fileRequested = "index.html";
@@ -147,11 +147,12 @@ public class SimpleServer {
 				File file = new File(fileRequested);
 				String fileLength = String.valueOf(file.length());				
 				String content = getContentType(fileRequested,method);
-				
+
 				String formatted = getServerTime();
 
 				if (method.equals("GET")) { 					
 					boolean isFileAvailable = checkAvailability(fileRequested);
+					System.out.println("Is Available : "+isFileAvailable);
 					//					if(placeholderTest){
 					//						
 					//						out.print("999 \r\n");  									 
@@ -187,19 +188,23 @@ public class SimpleServer {
 							File fileNow = null;
 							String fileNewName = "";
 
-							if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
-								fileNewName = "."+fileRequested;
-								fileNow = new File(fileNewName);
-								newfileLength =  fileNow.length();
-
+//							if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
+//								fileNewName = fileRequested;
+//								fileNow = new File(fileNewName);
+//								newfileLength =  fileNow.length();
+//
+//							}else{
+//								fileNewName = fileRequested;
+//								fileNow = new File(fileNewName);
+//								fileLength = String.valueOf(fileNow.length());
+//							}
+							System.out.println("File Req :"+fileRequested);
+							if(!fileRequested.equals("./public/")){
+								verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
 							}else{
-								fileNewName = fileRequested;
-								fileNow = new File(fileNewName);
-								fileLength = String.valueOf(fileNow.length());
+								verifiedCaseFile = true;
 							}
-
-							verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
-							if(fileNow.exists() && verifiedCaseFile){
+							if(verifiedCaseFile){
 								System.out.println("HERE");
 								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +formatted+"\r\n" + "Connection: close\r\n";
 								dataOut.write(str.getBytes());
@@ -230,8 +235,7 @@ public class SimpleServer {
 									placeholderTest=true;
 								}
 								else if(fileRequested.contains(".jpeg") || fileRequested.contains(".jpg")){
-
-									System.out.println("in JPEG :"+fileRequested);
+									System.out.println("Here :"+fileRequested);
 									FileReader fr = new FileReader(fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
@@ -339,16 +343,26 @@ public class SimpleServer {
 
 	public static boolean checkAvailability(String fileName){
 
-		if(fileName.indexOf('/') == fileName.lastIndexOf('/')){
-			File f = new File(fileName);
+
+		System.out.println("file at Check :"+fileName);
+		if(fileName.equals("./public/")){
+			fileName = "./public/a1-test/2/index.html";
+			return true;
+		}
+		else if(fileName.indexOf('/') == fileName.lastIndexOf('/')){
+			System.out.println("Here 11");
+			File f = new File(fileName);			
 			return Files.exists(f.toPath());
 		}
 		else if(fileName.indexOf('/') >= 0 && fileName.lastIndexOf('/') > 0){
-			fileName = "."+fileName;
+			System.out.println("Here 12");
+			//fileName = "."+fileName;
 			File f = new File(fileName);
 			return Files.exists(f.toPath());
 		}
+
 		else{
+			System.out.println("Here 13");
 			File f = new File(fileName);
 			return Files.exists(f.toPath());
 		}
@@ -382,18 +396,18 @@ public class SimpleServer {
 
 
 
-public static boolean verifyCaseSensitiveFiles(String fileDir){
-	//System.out.println("URL Encoded ---"+fileDir);
-	String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
-	fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
-	File file = new File(fileDir);
-	String[] files = file.list();
-	for(String f : files){
-		System.out.println("File "+f);
-		if(f.equals(fileName))
-			return true;
-	}
-	return false;
+	public static boolean verifyCaseSensitiveFiles(String fileDir){
+		System.out.println("URL Encoded ---"+fileDir);
+		String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
+		fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
+		File file = new File(fileDir);
+		String[] files = file.list();
+		for(String f : files){
+			System.out.println("File "+f);
+			if(f.equals(fileName))
+				return true;
+		}
+		return false;
 
-}
+	}
 }
