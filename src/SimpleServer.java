@@ -11,12 +11,19 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
- 
+import java.util.TimeZone;
+
 
 public class SimpleServer {
 	public static String method = "";
@@ -28,6 +35,7 @@ public class SimpleServer {
 	public static String WEBROOT= "./public";
 	public static ArrayList<String> allowList = new ArrayList<String>();
 
+
 	public static void main(String args[]) {
 
 		allowList.add("GET");
@@ -38,9 +46,9 @@ public class SimpleServer {
 			int port = Integer.parseInt(args[0]);
 			LinkedHashMap<String,String> headerMap = new LinkedHashMap<String,String>();
 			ServerSocket ss = new ServerSocket(port);
-			 
+
 			for (;;) {
-				 
+
 				Socket client = ss.accept();
 				BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 				PrintWriter out = new PrintWriter(client.getOutputStream());
@@ -78,7 +86,7 @@ public class SimpleServer {
 				if(count < 3){
 					malformedHeader = true;
 				}
-			
+
 				Iterator<Map.Entry<String, String>> it = headerMap.entrySet().iterator();
 				while (it.hasNext()) {
 					Map.Entry<String,String> pair = (Map.Entry<String,String>)it.next();
@@ -97,13 +105,13 @@ public class SimpleServer {
 						connection = (String)pair.getValue();
 					}
 				}
-				
+
 				System.out.println("method:"+method);
 				System.out.println("fileRequested:"+fileRequested);
 				System.out.println("httpVersion:"+httpVersion);
 				System.out.println("host:"+host);
 				System.out.println("connection:"+connection);
-				
+
 				fileRequested = java.net.URLDecoder.decode(fileRequested, "UTF-8");
 
 				if(!httpVersion.equals("HTTP/1.1")){
@@ -139,49 +147,51 @@ public class SimpleServer {
 				File file = new File(fileRequested);
 				String fileLength = String.valueOf(file.length());				
 				String content = getContentType(fileRequested,method);
+				
+				String formatted = getServerTime();
 
 				if (method.equals("GET")) { 					
 					boolean isFileAvailable = checkAvailability(fileRequested);
-//					if(placeholderTest){
-//						
-//						out.print("999 \r\n");  									 
-//						out.print("Connection: Alive123\r\n");  
-//						out.print("\r\n\r\n");	
-//						
-//					}
+					//					if(placeholderTest){
+					//						
+					//						out.print("999 \r\n");  									 
+					//						out.print("Connection: Alive123\r\n");  
+					//						out.print("\r\n\r\n");	
+					//						
+					//					}
 					//else
-						if(malformedHeader || missingHost){
+					if(malformedHeader || missingHost){
 						out.print("HTTP/1.1 400 Bad Request Error \r\n");  									 
-						out.println("Date: " +new Date()+"\r\n"); 
+						out.println("Date: " +formatted+"\r\n"); 
 						out.print("Connection: close\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(incorrectVersion){
 						out.print("HTTP/1.1 505 Version Not Supported \r\n");  									 
-						out.println("Date: " +new Date()+"\r\n"); 
+						out.println("Date: " +formatted+"\r\n"); 
 						out.print("Connection: close\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(missingHost){
 						out.print("HTTP/1.1 400 Bad Request Error\r\n");  										 
-						out.println("Date: " +new Date()+"\r\n"); 
+						out.println("Date: " +formatted+"\r\n"); 
 						out.print("Connection: close\r\n");  
 						out.print("\r\n\r\n");						
 					}
-					
+
 					else {
 						long newfileLength = 0l;
 						boolean verifiedCaseFile = false;
-						
+
 						if(isFileAvailable){
 							File fileNow = null;
 							String fileNewName = "";
-							
+
 							if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
 								fileNewName = "."+fileRequested;
 								fileNow = new File(fileNewName);
 								newfileLength =  fileNow.length();
-							 
+
 							}else{
 								fileNewName = fileRequested;
 								fileNow = new File(fileNewName);
@@ -190,14 +200,14 @@ public class SimpleServer {
 
 							verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
 							if(fileNow.exists() && verifiedCaseFile){
-								 System.out.println("HERE");
-								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +new Date()+"\r\n" + "Connection: close\r\n";
+								System.out.println("HERE");
+								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +formatted+"\r\n" + "Connection: close\r\n";
 								dataOut.write(str.getBytes());
 								dataOut.write("\r\n".getBytes());
-								
+
 								if(fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
 										fileRequested.contains(".txt") || fileRequested.contains("directory3isempty")){
-									 
+
 									FileReader fr = new FileReader("."+fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
@@ -207,7 +217,7 @@ public class SimpleServer {
 									dataOut.flush();
 								}
 								else if(fileRequested.contains(".gif")){
-									 
+
 									FileReader fr = new FileReader("."+fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
@@ -215,31 +225,32 @@ public class SimpleServer {
 									while ((fileLine = br.readLine()) != null) {
 										dataOut.write((fileLine).getBytes());								
 									}
-									 
+
 									dataOut.flush();
 									placeholderTest=true;
 								}
 								else if(fileRequested.contains(".jpeg") || fileRequested.contains(".jpg")){
-									 
-									FileReader fr = new FileReader("."+fileRequested);
+
+									System.out.println("in JPEG :"+fileRequested);
+									FileReader fr = new FileReader(fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
-									
+
 									while ((fileLine = br.readLine()) != null) {
 										dataOut.writeBytes(fileLine);								
 									}
-									 
+
 									dataOut.flush();
-									 
+
 								}
-								
-								 	 								
+
+
 							}else{
-								 
+
 								out.print("HTTP/1.1 404 Not Found\r\n");  
 								out.print("Content-Type: "+content+"\r\n");
 								out.print("Content-Length: "+fileLength+"\r\n");
-								out.print("Date: " +new Date()+"\r\n"); 
+								out.print("Date: " +formatted+"\r\n"); 
 								out.print("Connection: close\r\n"); 
 								out.print("\r\n");
 							}
@@ -247,7 +258,7 @@ public class SimpleServer {
 
 						else{
 							out.print("HTTP/1.1 404 Not Found\r\n");  
-							out.println("Date: " +new Date()+"\r\n"); 
+							out.println("Date: " +formatted+"\r\n"); 
 							out.print("Connection: close\r\n"); 
 							out.print("\r\n\r\n");
 						}
@@ -260,7 +271,7 @@ public class SimpleServer {
 						out.print("HTTP/1.1 200 OK\r\n");  
 						out.print("Content-Type: "+content+"\r\n");						
 						out.print("\r\n");
- 
+
 					}else{
 						out.print("HTTP/1.1 400 Not Found\r\n");  
 						out.print("Content-Type: text/plain\r\n");						
@@ -307,20 +318,20 @@ public class SimpleServer {
 						allowedMethods = allowedMethods+method +",";
 					}
 					allowedMethods = allowedMethods.substring(0,allowedMethods.length()-1);
-					
+
 					out.print("HTTP/1.1 200 OK\r\n");  
 					out.print("Allow: "+allowedMethods+"\r\n");									
 					out.print("\r\n\r\n");
 				}
- 
+
 				out.close();
 				dataOut.close();
-				
+
 				in.close();  
 				client.close();  
 			}
 		}
-		 
+
 		catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -360,20 +371,29 @@ public class SimpleServer {
 		else
 			return "text/plain";
 	}
- 
-	
-	public static boolean verifyCaseSensitiveFiles(String fileDir){
-		//System.out.println("URL Encoded ---"+fileDir);
-		String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
-		fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
-		File file = new File(fileDir);
-		String[] files = file.list();
-	    for(String f : files){
-	    	System.out.println("File "+f);
-	        if(f.equals(fileName))
-	            return true;
-	    }
-	    return false;
-		
+
+
+	public static String getServerTime() {
+		Calendar calendar = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+		return dateFormat.format(calendar.getTime());
 	}
+
+
+
+public static boolean verifyCaseSensitiveFiles(String fileDir){
+	//System.out.println("URL Encoded ---"+fileDir);
+	String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
+	fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
+	File file = new File(fileDir);
+	String[] files = file.list();
+	for(String f : files){
+		System.out.println("File "+f);
+		if(f.equals(fileName))
+			return true;
+	}
+	return false;
+
+}
 }
