@@ -162,22 +162,22 @@ public class SimpleServer {
 				
 					if(malformedHeader || missingHost){
 						out.print("HTTP/1.1 400 Bad Request"+"\r\n");  									 
-						out.print("Date: " +formatted+"\r\n"); 
-						out.print("Server :localhost:8090"+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
 						out.print("Connection: close"+"\r\n");  
 						out.print("Content-Type: "+content+"\r\n");
 						out.print("\r\n\r\n");						
 					}
 					else if(incorrectVersion){
 						out.print("HTTP/1.1 505 Version Not Supported \r\n");  									 
-						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Date: "+formatted+"\r\n"); 
 						out.print("Connection: close"+"\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(missingHost){
 						out.print("HTTP/1.1 400 Bad Request"+"\r\n");  									 
 						out.print("Date: " +formatted+"\r\n"); 
-						out.print("Server :localhost:8090"+"\r\n");
+						out.print("Server: "+host+"\r\n");
 						out.print("Connection: close"+"\r\n");  
 						out.print("Content-Type: "+content+"\r\n");
 						out.print("\r\n\r\n");						
@@ -195,39 +195,38 @@ public class SimpleServer {
 							if(!fileRequested.equals("../public/")){
 								verifiedCaseFile = verifyCaseSensitiveFiles(fileRequested);
 							}else{
-								fileRequested = "/public/" +"index.html";
+								fileRequested = "../public/a1-test/2/" +"index.html";
 								verifiedCaseFile = true;
 							}
 							if(verifiedCaseFile){
 
-								String filePath = new File(fileRequested).getAbsolutePath().replace("src../","");
+								String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
 								System.out.println("filePath : "+filePath);
 								File fileForLength = new File(filePath);
 								newfileLength = fileForLength.length();
 
 								String str = "HTTP/1.1 200 OK\r\n"+
-										"Date: " +formatted+"\r\n" +
-										"Server :localhost:8090"+"\r\n"+
+										"Date: "+formatted+"\r\n" +
+										"Server: "+host+"\r\n"+
 										"Content-Type: "+content+"\r\n"+
-										"Last-Modified :"+getLastModified(filePath)+"\r\n"+
-										"Accept-Ranges : bytes"+"\r\n"+
-										"Content-Length:"+newfileLength+"\r\n"+											 
+										"Last-Modified: "+getLastModified(filePath)+"\r\n"+										
+										"Content-Length: "+newfileLength+"\r\n"+											 
 										"Connection: close"+"\r\n\r\n";
-
+								
 								dataOut.write(str.getBytes());
+								
 
 								if(newfileLength != 0){
 									System.out.println("fileRequested :"+fileRequested);
 									String filePath1 = new File(fileRequested).getAbsolutePath().replace("src/../","");
-									filePath1 = filePath1.replace("src../","");
-									System.out.println("filePath :"+filePath1.replace("src../",""));
+									filePath1 = filePath1.replace("src/../","");									
 									FileReader fr = new FileReader(filePath1);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
 									while ((fileLine = br.readLine()) != null) {
-										dataOut.write((fileLine).getBytes());								
-									}
-									dataOut.flush();
+										dataOut.write((fileLine).getBytes());
+										
+									}																	
 								}
 
 								else if(fileRequested.contains(".gif")){
@@ -249,8 +248,8 @@ public class SimpleServer {
 							}else{
 
 								out.print("HTTP/1.1 404 Not Found"+"\r\n");  
-								out.print("Date: " +formatted+"\r\n"); 
-								out.print("Server :"+host+"\r\n");
+								out.print("Date: "+formatted+"\r\n"); 
+								out.print("Server: "+host+"\r\n");
 								out.print("Connection: close"+"\r\n"); 
 								out.print("Content-Type: "+content+"\r\n");								
 								out.print("\r\n");
@@ -259,8 +258,8 @@ public class SimpleServer {
 
 						else{
 							out.print("HTTP/1.1 404 Not Found"+"\r\n");  
-							out.print("Date: " +formatted+"\r\n"); 
-							out.print("Server :"+host+"\r\n");
+							out.print("Date: "+formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("Content-Type: "+content+"\r\n");								
 							out.print("\r\n");
@@ -273,18 +272,17 @@ public class SimpleServer {
 					long newfileLength = 0l;
 					if(isFileAvailable){
 						
-						String filePath = new File(fileRequested).getAbsolutePath().replace("./","");
+						String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
 						System.out.println("filePath : "+filePath);
 						File fileForLength = new File(filePath);
 						newfileLength = fileForLength.length();
 						
 						out.print("HTTP/1.1 200 OK\r\n");
-						out.print("Date: " +formatted+"\r\n"); 
-						out.print("Server :localhost:8090"+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
 						out.print("Content-Type: "+content+"\r\n");
-						out.print("Last-Modified :"+getLastModified(filePath)+"\r\n");
-						out.print("Accept-Ranges : bytes"+"\r\n");
-						out.print("Content-Length:"+newfileLength+"\r\n");										 
+						out.print("Last-Modified: "+getLastModified(filePath)+"\r\n");						
+						out.print("Content-Length: "+newfileLength+"\r\n");										 
 						out.print("Connection: close"+"\r\n\r\n");
 
 					}else{
@@ -314,7 +312,7 @@ public class SimpleServer {
 					System.out.println("Here :"+fileRequested);
 					out.print("HTTP/1.1 200 OK"+"\r\n");  
 					out.print("Date: "+formatted+"\r\n");
-					out.print("Server :localhost:8090"+"\r\n");
+					out.print("Server: "+host+"\r\n");
 					out.print("Connection: close"+"\r\n");
 					out.print("Content-Type: "+content);	
 					out.print("\r\n\r\n");
@@ -350,13 +348,13 @@ public class SimpleServer {
 
 					out.print("HTTP/1.1 200 OK\r\n");
 					out.print("Date: " +formatted+"\r\n"); 
-					out.print("Server :localhost:8090"+"\r\n");					 
+					out.print("Server: "+host+"\r\n");					 
 					out.print("Content-Length:"+0+"\r\n");	
 					out.print("Allow: "+allowedMethods+"\r\n");	
 					out.print("Connection: close"+"\r\n");
 					out.print("Content-Type: "+content+"\r\n\r\n");
 				}
-
+				out.flush();	
 				out.close();
 				dataOut.close();
 
@@ -425,6 +423,8 @@ public class SimpleServer {
 			return "text/xml";
 		}else if (fileRequested.endsWith(".jpeg")  ||  fileRequested.endsWith(".jpg")){
 			return "image/jpeg";
+		}else if (fileRequested.endsWith(".gif")){
+			return "image/gif";
 		}
 		else
 			return "text/plain";
@@ -465,17 +465,5 @@ public class SimpleServer {
 
 	}
 
-	public static void sendResponse(String methodType) throws IOException{
 
-		if(methodType == "GET"){
-			dataOut.writeBytes("HTTP/1.1 200 OK");
-			dataOut.writeBytes("Date: "+getServerTime());
-			dataOut.writeBytes("Server: localhost");
-			dataOut.writeBytes("Last-Modified: ");
-			dataOut.writeBytes("Accept-Ranges: bytes");
-			dataOut.writeBytes("Content-Length: ");
-			dataOut.writeBytes("Connection: close");
-			dataOut.writeBytes("Content-Type: text/html");
-		}
-	}
 }
