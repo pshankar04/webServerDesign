@@ -294,6 +294,7 @@ public class SimpleServer {
 				}
 
 				if (method.equals("TRACE")) { 
+					long newfileLength = 0l;
 					String fileNewName;
 					File fileNow;
 					System.out.println("Inside TRACE :"+fileRequested);
@@ -306,18 +307,29 @@ public class SimpleServer {
 						fileNow = new File(fileRequested);
 						fileLength = String.valueOf(fileNow.length());
 					}
+//					fileRequested = fileRequested.replace("../public","");
+//					fileRequested = fileRequested.replace("index.html","");
+					
+					String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
+					System.out.println("filePath : "+filePath);
+					File fileForLength = new File(filePath);
+					newfileLength = fileForLength.length();
+					
 					fileRequested = fileRequested.replace("../public","");
 					fileRequested = fileRequested.replace("index.html","");
 					
 					System.out.println("Here :"+fileRequested);
+					System.out.println("newfileLength :"+newfileLength);
+					
 					out.print("HTTP/1.1 200 OK"+"\r\n");  
 					out.print("Date: "+formatted+"\r\n");
 					out.print("Server: "+host+"\r\n");
 					out.print("Connection: close"+"\r\n");
-					out.print("Content-Type: "+content);	
-					out.print("\r\n\r\n");
+					out.print("Content-Type: "+content+"\r\n");	
+					out.print("Content-Length: "+newfileLength+"\r\n");	
+					out.print("\r\n");
 					out.print("TRACE "+fileRequested+" HTTP/1.1"+"\r\n");  
-					out.print("Host: "+host+"\r\n");	
+					out.print("Host: "+host+"\r\n");						
 					out.print("Connection: close"+"\r\n");
 //					out.print("\r\n");
 
