@@ -32,7 +32,7 @@ public class SimpleServer {
 	public static String host="";
 	public static String connection="";
 	public static boolean placeholderTest = false;
-	public static String WEBROOT= "./public";
+	public static String WEBROOT= "../public";
 	public static ArrayList<String> allowList = new ArrayList<String>();
 	public static BufferedReader in;
 	public static PrintWriter out;
@@ -192,7 +192,7 @@ public class SimpleServer {
 							String fileNewName = "";
  
 							System.out.println("File Req :"+fileRequested);
-							if(!fileRequested.equals("./public/")){
+							if(!fileRequested.equals("../public/")){
 								verifiedCaseFile = verifyCaseSensitiveFiles(fileRequested);
 							}else{
 								fileRequested = "/public/" +"index.html";
@@ -200,7 +200,7 @@ public class SimpleServer {
 							}
 							if(verifiedCaseFile){
 
-								String filePath = new File(fileRequested).getAbsolutePath().replace("./","");
+								String filePath = new File(fileRequested).getAbsolutePath().replace("src../","");
 								System.out.println("filePath : "+filePath);
 								File fileForLength = new File(filePath);
 								newfileLength = fileForLength.length();
@@ -217,7 +217,11 @@ public class SimpleServer {
 								dataOut.write(str.getBytes());
 
 								if(newfileLength != 0){
-									FileReader fr = new FileReader(fileRequested);
+									System.out.println("fileRequested :"+fileRequested);
+									String filePath1 = new File(fileRequested).getAbsolutePath().replace("src/../","");
+									filePath1 = filePath1.replace("src../","");
+									System.out.println("filePath :"+filePath1.replace("src../",""));
+									FileReader fr = new FileReader(filePath1);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
 									while ((fileLine = br.readLine()) != null) {
@@ -228,7 +232,7 @@ public class SimpleServer {
 
 								else if(fileRequested.contains(".gif")){
 
-									FileReader fr = new FileReader("."+fileRequested);
+									FileReader fr = new FileReader(fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
 									dataOut.write(("GIF89a").getBytes());
@@ -294,7 +298,7 @@ public class SimpleServer {
 				if (method.equals("TRACE")) { 
 					String fileNewName;
 					File fileNow;
-					System.out.println("Inside TRACE :"+content);
+					System.out.println("Inside TRACE :"+fileRequested);
 					if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
 						fileNewName = "."+fileRequested;
 						fileNow = new File(fileNewName);
@@ -304,7 +308,7 @@ public class SimpleServer {
 						fileNow = new File(fileRequested);
 						fileLength = String.valueOf(fileNow.length());
 					}
-					fileRequested = fileRequested.replace("./public","");
+					fileRequested = fileRequested.replace("../public","");
 					fileRequested = fileRequested.replace("index.html","");
 					
 					System.out.println("Here :"+fileRequested);
@@ -372,10 +376,10 @@ public class SimpleServer {
 		String directory = fileName.substring(0,fileName.lastIndexOf('/'));
 		String filename = fileName.substring(fileName.lastIndexOf('/')+1);
 		
-		System.out.println("Dir :"+directory);
-		System.out.println("File :"+filename);
+//		System.out.println("Dir :"+directory);
+//		System.out.println("File :"+filename);
 		File currentDir = new File(directory);
-		if(directory.equals("./public")){
+		if(directory.equals("../public")){
 			filename = "index.html";
 		}
 		return displayDirectoryContents(currentDir,filename);
@@ -387,9 +391,9 @@ public class SimpleServer {
 		System.out.println("File2 :"+filename);
 		 try{
 			File[] files = dir.listFiles();
-			System.out.println("LEN : "+files.length);
+			//System.out.println("LEN : "+files.length);
 			for (File file : files) {
-				System.out.println("FILE NAME :"+file.getName());
+				//System.out.println("FILE NAME :"+file.getName());
 				if (file.isDirectory()) {				
 					displayDirectoryContents(file,filename);
 				} else {
