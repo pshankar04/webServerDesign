@@ -345,7 +345,7 @@ public class SimpleServer {
 					
 					out.print("HTTP/1.1 501 Method Not Implemented\r\n"); 
 					out.print("Date: " +formatted+"\r\n"); 
-					out.print("Server :"+host+"\r\n");					 
+					out.print("Server: "+host+"\r\n");					 
 					out.print("Allow: "+allowedMethods+"\r\n");	
 					out.print("Connection: close"+"\r\n");
 					out.print("Content-Type: "+content+"\r\n\r\n");
