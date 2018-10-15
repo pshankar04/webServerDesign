@@ -34,6 +34,10 @@ public class SimpleServer {
 	public static boolean placeholderTest = false;
 	public static String WEBROOT= "./public";
 	public static ArrayList<String> allowList = new ArrayList<String>();
+	public static BufferedReader in;
+	public static PrintWriter out;
+	public static DataOutputStream dataOut;
+	public static boolean isFileAvailable = false;
 
 
 	public static void main(String args[]) {
@@ -50,9 +54,10 @@ public class SimpleServer {
 			for (;;) {
 
 				Socket client = ss.accept();
-				BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-				PrintWriter out = new PrintWriter(client.getOutputStream());
-				DataOutputStream dataOut = new DataOutputStream(client.getOutputStream());
+				in = new BufferedReader(new InputStreamReader(client.getInputStream()));
+				out = new PrintWriter(client.getOutputStream());
+				dataOut = new DataOutputStream(client.getOutputStream());
+
 				String line;
 				int count =0;
 				boolean malformedHeader = false;
@@ -124,7 +129,8 @@ public class SimpleServer {
 				if(method.equals("TRACE")){
 
 				}
-				else if (fileRequested.endsWith("/") && (fileRequested.indexOf('/') >= 0) && (fileRequested.lastIndexOf('/') > 0 )){
+				
+				if (fileRequested.endsWith("/") && (fileRequested.indexOf('/') >= 0) && (fileRequested.lastIndexOf('/') > 0 )){
 					fileRequested = fileRequested +"index.html";
 				}
 				else if(fileRequested.equals("/")){
@@ -153,14 +159,7 @@ public class SimpleServer {
 				if (method.equals("GET")) { 					
 					boolean isFileAvailable = checkAvailability(fileRequested);
 					System.out.println("Is Available : "+isFileAvailable);
-					//					if(placeholderTest){
-					//						
-					//						out.print("999 \r\n");  									 
-					//						out.print("Connection: Alive123\r\n");  
-					//						out.print("\r\n\r\n");	
-					//						
-					//					}
-					//else
+				
 					if(malformedHeader || missingHost){
 						out.print("HTTP/1.1 400 Bad Request Error \r\n");  									 
 						out.println("Date: " +formatted+"\r\n"); 
@@ -187,33 +186,34 @@ public class SimpleServer {
 						if(isFileAvailable){
 							File fileNow = null;
 							String fileNewName = "";
-
-//							if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
-//								fileNewName = fileRequested;
-//								fileNow = new File(fileNewName);
-//								newfileLength =  fileNow.length();
-//
-//							}else{
-//								fileNewName = fileRequested;
-//								fileNow = new File(fileNewName);
-//								fileLength = String.valueOf(fileNow.length());
-//							}
+ 
 							System.out.println("File Req :"+fileRequested);
 							if(!fileRequested.equals("./public/")){
-								verifiedCaseFile = verifyCaseSensitiveFiles(fileNewName);
+								verifiedCaseFile = verifyCaseSensitiveFiles(fileRequested);
 							}else{
+								fileRequested = "/public/" +"index.html";
 								verifiedCaseFile = true;
 							}
 							if(verifiedCaseFile){
-								System.out.println("HERE");
-								String str = "HTTP/1.1 200 OK\r\n"+"Content-Type: "+content+"\r\n"+"Content-Length:"+newfileLength+"\r\n"+"Date: " +formatted+"\r\n" + "Connection: close\r\n";
+
+								String filePath = new File(fileRequested).getAbsolutePath().replace("./","");
+								System.out.println("filePath : "+filePath);
+								File fileForLength = new File(filePath);
+								newfileLength = fileForLength.length();
+
+								String str = "HTTP/1.1 200 OK\r\n"+
+										"Date: " +formatted+"\r\n" +
+										"Server :localhost:8090"+"\r\n"+
+										"Content-Type: "+content+"\r\n"+
+										"Last-Modified :"+getLastModified(filePath)+"\r\n"+
+										"Accept-Ranges : bytes"+"\r\n"+
+										"Content-Length:"+newfileLength+"\r\n"+											 
+										"Connection: close"+"\r\n\r\n";
+
 								dataOut.write(str.getBytes());
-								dataOut.write("\r\n".getBytes());
 
-								if(fileRequested.contains(":.html") || fileRequested.contains("%this.html") ||
-										fileRequested.contains(".txt") || fileRequested.contains("directory3isempty")){
-
-									FileReader fr = new FileReader("."+fileRequested);
+								if(newfileLength != 0){
+									FileReader fr = new FileReader(fileRequested);
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
 									while ((fileLine = br.readLine()) != null) {
@@ -221,6 +221,7 @@ public class SimpleServer {
 									}
 									dataOut.flush();
 								}
+
 								else if(fileRequested.contains(".gif")){
 
 									FileReader fr = new FileReader("."+fileRequested);
@@ -234,19 +235,7 @@ public class SimpleServer {
 									dataOut.flush();
 									placeholderTest=true;
 								}
-								else if(fileRequested.contains(".jpeg") || fileRequested.contains(".jpg")){
-									System.out.println("Here :"+fileRequested);
-									FileReader fr = new FileReader(fileRequested);
-									BufferedReader br = new BufferedReader(fr);
-									String fileLine;
 
-									while ((fileLine = br.readLine()) != null) {
-										dataOut.writeBytes(fileLine);								
-									}
-
-									dataOut.flush();
-
-								}
 
 
 							}else{
@@ -286,7 +275,7 @@ public class SimpleServer {
 				if (method.equals("TRACE")) { 
 					String fileNewName;
 					File fileNow;
-					System.out.println("Inside TRACE :"+host);
+					System.out.println("Inside TRACE :"+content);
 					if(fileRequested.indexOf('/') >= 0 && fileRequested.lastIndexOf('/') > 0 && (fileRequested.indexOf('/') != fileRequested.lastIndexOf('/'))){
 						fileNewName = "."+fileRequested;
 						fileNow = new File(fileNewName);
@@ -297,15 +286,19 @@ public class SimpleServer {
 						fileLength = String.valueOf(fileNow.length());
 					}
 					fileRequested = fileRequested.replace("./public","");
+					fileRequested = fileRequested.replace("index.html","");
+					
 					System.out.println("Here :"+fileRequested);
-					out.print("HTTP/1.1 200 OK\r\n");  
-					out.print("Content-Type: "+content+"\r\n");	
-					out.print("Content-Length: "+fileLength+"\r\n");	
-					out.print("\r\n");
-					out.print("TRACE "+fileRequested+" HTTP/1.1\r\n");  
-					out.print("Host: "+host+"\r\n");	
-					out.println("Connection: close \r\n");
+					out.print("HTTP/1.1 200 OK"+"\r\n");  
+					out.print("Date: "+formatted+"\r\n");
+					out.print("Server :localhost:8090"+"\r\n");
+					out.print("Connection: close"+"\r\n");
+					out.print("Content-Type: "+content);	
 					out.print("\r\n\r\n");
+					out.print("TRACE "+fileRequested+" HTTP/1.1"+"\r\n");  
+					out.print("Host: "+host+"\r\n");	
+					out.print("Connection: close"+"\r\n");
+					out.print("\r\n");
 
 
 				}
@@ -343,29 +336,44 @@ public class SimpleServer {
 
 	public static boolean checkAvailability(String fileName){
 
-
 		System.out.println("file at Check :"+fileName);
-		if(fileName.equals("./public/")){
-			fileName = "./public/a1-test/2/index.html";
-			return true;
+		String directory = fileName.substring(0,fileName.lastIndexOf('/'));
+		String filename = fileName.substring(fileName.lastIndexOf('/')+1);
+		
+		System.out.println("Dir :"+directory);
+		System.out.println("File :"+filename);
+		File currentDir = new File(directory);
+		if(directory.equals("./public")){
+			filename = "index.html";
 		}
-		else if(fileName.indexOf('/') == fileName.lastIndexOf('/')){
-			System.out.println("Here 11");
-			File f = new File(fileName);			
-			return Files.exists(f.toPath());
-		}
-		else if(fileName.indexOf('/') >= 0 && fileName.lastIndexOf('/') > 0){
-			System.out.println("Here 12");
-			//fileName = "."+fileName;
-			File f = new File(fileName);
-			return Files.exists(f.toPath());
-		}
-
-		else{
-			System.out.println("Here 13");
-			File f = new File(fileName);
-			return Files.exists(f.toPath());
-		}
+		return displayDirectoryContents(currentDir,filename);
+	 
+	}
+	
+ 
+	public static boolean displayDirectoryContents(File dir,String filename) {
+		System.out.println("File2 :"+filename);
+		 try{
+			File[] files = dir.listFiles();
+			System.out.println("LEN : "+files.length);
+			for (File file : files) {
+				System.out.println("FILE NAME :"+file.getName());
+				if (file.isDirectory()) {				
+					displayDirectoryContents(file,filename);
+				} else {
+					if(file.getName().equals(filename)){
+						
+						isFileAvailable = true;
+						System.out.println("Right here"+isFileAvailable);
+						break;
+					}
+				}
+			}
+		 }catch(NullPointerException ne){
+			 isFileAvailable = false;
+		 }
+		System.out.println("Right here11"+isFileAvailable);
+		return isFileAvailable;
 	}
 
 	private static String getContentType(String fileRequested,String method) {
@@ -396,6 +404,16 @@ public class SimpleServer {
 
 
 
+	public static String getLastModified(String filePath) {
+		File file = new File(filePath);
+		Date lastModified = new Date(file.lastModified());
+		Calendar calendar = Calendar.getInstance();
+		SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+		return dateFormat.format(lastModified);
+	}
+
+
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
 		System.out.println("URL Encoded ---"+fileDir);
 		String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
@@ -409,5 +427,19 @@ public class SimpleServer {
 		}
 		return false;
 
+	}
+
+	public static void sendResponse(String methodType) throws IOException{
+
+		if(methodType == "GET"){
+			dataOut.writeBytes("HTTP/1.1 200 OK");
+			dataOut.writeBytes("Date: "+getServerTime());
+			dataOut.writeBytes("Server: localhost");
+			dataOut.writeBytes("Last-Modified: ");
+			dataOut.writeBytes("Accept-Ranges: bytes");
+			dataOut.writeBytes("Content-Length: ");
+			dataOut.writeBytes("Connection: close");
+			dataOut.writeBytes("Content-Type: text/html");
+		}
 	}
 }
