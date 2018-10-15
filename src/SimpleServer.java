@@ -161,21 +161,25 @@ public class SimpleServer {
 					System.out.println("Is Available : "+isFileAvailable);
 				
 					if(malformedHeader || missingHost){
-						out.print("HTTP/1.1 400 Bad Request Error \r\n");  									 
-						out.println("Date: " +formatted+"\r\n"); 
-						out.print("Connection: close\r\n");  
+						out.print("HTTP/1.1 400 Bad Request"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server :localhost:8090"+"\r\n");
+						out.print("Connection: close"+"\r\n");  
+						out.print("Content-Type: "+content+"\r\n");
 						out.print("\r\n\r\n");						
 					}
 					else if(incorrectVersion){
 						out.print("HTTP/1.1 505 Version Not Supported \r\n");  									 
-						out.println("Date: " +formatted+"\r\n"); 
-						out.print("Connection: close\r\n");  
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Connection: close"+"\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(missingHost){
-						out.print("HTTP/1.1 400 Bad Request Error\r\n");  										 
-						out.println("Date: " +formatted+"\r\n"); 
-						out.print("Connection: close\r\n");  
+						out.print("HTTP/1.1 400 Bad Request"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server :localhost:8090"+"\r\n");
+						out.print("Connection: close"+"\r\n");  
+						out.print("Content-Type: "+content+"\r\n");
 						out.print("\r\n\r\n");						
 					}
 
@@ -240,35 +244,50 @@ public class SimpleServer {
 
 							}else{
 
-								out.print("HTTP/1.1 404 Not Found\r\n");  
-								out.print("Content-Type: "+content+"\r\n");
-								out.print("Content-Length: "+fileLength+"\r\n");
+								out.print("HTTP/1.1 404 Not Found"+"\r\n");  
 								out.print("Date: " +formatted+"\r\n"); 
-								out.print("Connection: close\r\n"); 
+								out.print("Server :"+host+"\r\n");
+								out.print("Connection: close"+"\r\n"); 
+								out.print("Content-Type: "+content+"\r\n");								
 								out.print("\r\n");
 							}
 						}
 
 						else{
-							out.print("HTTP/1.1 404 Not Found\r\n");  
-							out.println("Date: " +formatted+"\r\n"); 
-							out.print("Connection: close\r\n"); 
-							out.print("\r\n\r\n");
+							out.print("HTTP/1.1 404 Not Found"+"\r\n");  
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server :"+host+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("Content-Type: "+content+"\r\n");								
+							out.print("\r\n");
 						}
 					}
 				}
 
 				if (method.equals("HEAD")) { 
 					boolean isFileAvailable = checkAvailability(fileRequested);
-					if(isFileAvailable){						
-						out.print("HTTP/1.1 200 OK\r\n");  
-						out.print("Content-Type: "+content+"\r\n");						
-						out.print("\r\n");
+					long newfileLength = 0l;
+					if(isFileAvailable){
+						
+						String filePath = new File(fileRequested).getAbsolutePath().replace("./","");
+						System.out.println("filePath : "+filePath);
+						File fileForLength = new File(filePath);
+						newfileLength = fileForLength.length();
+						
+						out.print("HTTP/1.1 200 OK\r\n");
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server :localhost:8090"+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Last-Modified :"+getLastModified(filePath)+"\r\n");
+						out.print("Accept-Ranges : bytes"+"\r\n");
+						out.print("Content-Length:"+newfileLength+"\r\n");										 
+						out.print("Connection: close"+"\r\n\r\n");
 
 					}else{
-						out.print("HTTP/1.1 400 Not Found\r\n");  
-						out.print("Content-Type: text/plain\r\n");						
-						out.print("\r\n\r\n");
+						out.print("HTTP/1.1 400 Not Found"+"\r\n");  
+						out.print("Content-Type: text/plain"+"\r\n");	
+						out.print("Connection: close"+"\r\n\r\n");
+						//out.print("\r\n\r\n");
 					}
 				}
 
@@ -298,15 +317,24 @@ public class SimpleServer {
 					out.print("TRACE "+fileRequested+" HTTP/1.1"+"\r\n");  
 					out.print("Host: "+host+"\r\n");	
 					out.print("Connection: close"+"\r\n");
-					out.print("\r\n");
+//					out.print("\r\n");
 
 
 				}
 
 				if (method.equals("POST")) { 
-					out.print("HTTP/1.1 501 Not Implemented\r\n"); 
-					out.print("Content-Type: "+content+"\r\n");						
-					out.print("\r\n");
+					String allowedMethods = "";
+					for(String method: allowList){
+						allowedMethods = allowedMethods+method +",";
+					}
+					allowedMethods = allowedMethods.substring(0,allowedMethods.length()-1);
+					
+					out.print("HTTP/1.1 501 Method Not Implemented\r\n"); 
+					out.print("Date: " +formatted+"\r\n"); 
+					out.print("Server :"+host+"\r\n");					 
+					out.print("Allow: "+allowedMethods+"\r\n");	
+					out.print("Connection: close"+"\r\n");
+					out.print("Content-Type: "+content+"\r\n\r\n");
 				}
 
 				if (method.equals("OPTIONS")) { 
@@ -316,9 +344,13 @@ public class SimpleServer {
 					}
 					allowedMethods = allowedMethods.substring(0,allowedMethods.length()-1);
 
-					out.print("HTTP/1.1 200 OK\r\n");  
-					out.print("Allow: "+allowedMethods+"\r\n");									
-					out.print("\r\n\r\n");
+					out.print("HTTP/1.1 200 OK\r\n");
+					out.print("Date: " +formatted+"\r\n"); 
+					out.print("Server :localhost:8090"+"\r\n");					 
+					out.print("Content-Length:"+0+"\r\n");	
+					out.print("Allow: "+allowedMethods+"\r\n");	
+					out.print("Connection: close"+"\r\n");
+					out.print("Content-Type: "+content+"\r\n\r\n");
 				}
 
 				out.close();
