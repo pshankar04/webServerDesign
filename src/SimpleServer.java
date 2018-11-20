@@ -250,7 +250,7 @@ public class SimpleServer {
 				System.out.println("file Requested  Before:"+fileRequested);
 				fileRequested = WEBROOT + fileRequested;
 				System.out.println("file Requested  123:"+fileRequested);
-				File file = new File(fileRequested.replace("../public", ""));
+				File file = new File(fileRequested.replace("./public", ""));
 				String fileLength = String.valueOf(file.length());				
 				String content = getContentType(fileRequested,method);
 
@@ -260,7 +260,7 @@ public class SimpleServer {
 					boolean isFileAvailable = checkAvailability(fileRequested);
 					System.out.println("Is Available : "+isFileAvailable);
 
-					fileRequested = fileRequested.replace("../public","");
+					fileRequested = fileRequested.replace("./public","");
 					System.out.println("file requested GET: "+fileRequested);
 					System.out.println("needsRedirection :"+needsRedirection);
 
@@ -293,8 +293,8 @@ public class SimpleServer {
 							out.print("Content-Type: text/html"+"\r\n\r\n");							
 
 						}else if(etag.equals(if_match)){
-							if(!fileRequested.contains("../public")){
-								fileRequested = "../public" + fileRequested;
+							if(!fileRequested.contains("./public")){
+								fileRequested = "./public" + fileRequested;
 							}
 							File fileForLength = new File(fileRequested);
 							long newfileLength = fileForLength.length();
@@ -331,7 +331,7 @@ public class SimpleServer {
 							out.print("Connection: close"+"\r\n");  
 						} 
 						out.print("Content-Type: text/html"+"\r\n");
-						out.print("Location: "+fileRequested.replace("../public", "")+"/"+"\r\n");
+						out.print("Location: "+fileRequested.replace("./public", "")+"/"+"\r\n");
 						out.print("\r\n\r\n");	
 
 					}
@@ -361,7 +361,7 @@ public class SimpleServer {
 					else if(needsRedirection){
 						System.out.println("Here for 301");
 						//						if(!fileRequested.contains(host)){
-						//							fileRequested = fileRequested.replace("../public", "");
+						//							fileRequested = fileRequested.replace("./public", "");
 						//							fileRequested = "http://"+host + fileRequested ;
 						//						}
 						String messageFile = "<html><head><title>301 Moved Permanently</title></head><body><h1>Moved Permanently</h1>"+	
@@ -376,7 +376,7 @@ public class SimpleServer {
 							out.print("Connection: close"+"\r\n");  
 						}
 						out.print("Content-Type: text/html"+"\r\n");
-						out.print("Location: "+fileRequested.replace("../public", "")+"/"+"\r\n");
+						out.print("Location: "+fileRequested.replace("./public", "")+"/"+"\r\n");
 						out.print("Content-Length: "+messageFile.length()+"\r\n");
 						out.print("\r\n\r\n");		
 
@@ -405,7 +405,7 @@ public class SimpleServer {
 						out.println("Transfer-Encoding: chunked"+"\r\n");
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n");	
-						out.print(getChunkedBytes("../public/a3-test/fairlane.html"));
+						out.print(getChunkedBytes("./public/a3-test/fairlane.html"));
 						out.print("\r\n\r\n");
 					}
 
@@ -421,16 +421,16 @@ public class SimpleServer {
 							fileRequested = fileRequested.replace("http://localhost:8090", "");
 							System.out.println("File Req :"+fileRequested);
 							if(fileRequested.equals("/")){
-								fileRequested = "../public/a1-test/2/" +"index.html";
+								fileRequested = "./public/a1-test/2/" +"index.html";
 								verifiedCaseFile = true;
 							}
 							else if(fileRequested.contains("/a2-test/")){
 								verifiedCaseFile = true;
 							}
-							else if(fileRequested.contains("../public/a2-test")){
+							else if(fileRequested.contains("./public/a2-test")){
 								verifiedCaseFile = true;
 							}
-							else if(!fileRequested.equals("../public/") && !fileRequested.contains(".jpeg")){
+							else if(!fileRequested.equals("./public/") && !fileRequested.contains(".jpeg")){
 								verifiedCaseFile = verifyCaseSensitiveFiles(fileRequested);
 							}
 							else if(fileRequested.contains(".jpeg")){
@@ -438,15 +438,15 @@ public class SimpleServer {
 							}
 
 							else{
-								fileRequested = "../public/a1-test/2/" +"index.html";
+								fileRequested = "./public/a1-test/2/" +"index.html";
 								verifiedCaseFile = true;
 							}
 							if(verifiedCaseFile){
 								System.out.println("Verified Case...");
 								String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
 								System.out.println("file Path : "+filePath);
-								if(!fileRequested.contains("../public")){
-									fileRequested = "../public" + fileRequested;
+								if(!fileRequested.contains("./public")){
+									fileRequested = "./public" + fileRequested;
 								}
 								System.out.println("file Requested 111 : "+fileRequested);
 								File fileForLength = new File(fileRequested);
@@ -513,7 +513,7 @@ public class SimpleServer {
 
 								}
 
-								else if(fileRequested.contains("../public/a2-test") && !fileRequested.contains(".html")){
+								else if(fileRequested.contains("./public/a2-test") && !fileRequested.contains(".html")){
 									System.out.println("here for dir str");
 									dataOut.write((directoryStructure).getBytes());
 								}else if(headerMap.containsKey("Range")){
@@ -558,7 +558,7 @@ public class SimpleServer {
 							out.print("Connection: close"+"\r\n");
 							out.print("\r\n");
 
-							out.print(getChunkedBytes("../public/a3-test/404.html"));
+							out.print(getChunkedBytes("./public/a3-test/404.html"));
 							out.print("\r\n\r\n");
 						}
 						else{
@@ -624,7 +624,7 @@ public class SimpleServer {
 						isFileAvailable = checkAvailability(fileRequested);
 					}
 					if(fileRequested.matches("^(.*)/1.[234]/(.*)")){
-						fileRequested = fileRequested.replace("../public/","");
+						fileRequested = fileRequested.replace("./public/","");
 						regexPath = fileRequested.substring(fileRequested.indexOf("/"),fileRequested.lastIndexOf("/"));
 						System.out.println("INSIDE HEAD regexPath :"+regexPath);
 						while(!regexPath.matches("/1.[234]")){
@@ -677,7 +677,7 @@ public class SimpleServer {
 									keepAliveStr = "Connection: close"+"\r\n";  
 								}
 								out.print("Content-Type: text/html"+"\r\n");
-								out.print("Location: "+fileRequested.replace("../public", "")+"\r\n");
+								out.print("Location: "+fileRequested.replace("./public", "")+"\r\n");
 								out.print("\r\n");	
 							}else{
 								String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
@@ -783,7 +783,7 @@ public class SimpleServer {
 						fileNow = new File(fileRequested);
 						fileLength = String.valueOf(fileNow.length());
 					}
-					//					fileRequested = fileRequested.replace("../public","");
+					//					fileRequested = fileRequested.replace("./public","");
 					//					fileRequested = fileRequested.replace("index.html","");
 
 					String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
@@ -791,7 +791,7 @@ public class SimpleServer {
 					File fileForLength = new File(filePath);
 					newfileLength = fileForLength.length();
 
-					fileRequested = fileRequested.replace("../public","");
+					fileRequested = fileRequested.replace("./public","");
 
 					//					if(method.equals("TRACE")){
 					//						fileRequested = fileRequested.replace("index.html","");
@@ -901,8 +901,8 @@ public class SimpleServer {
 		if(f.isDirectory()){
 			return "";
 		}
-		if(!file.contains("../public")){
-			file = "../public" + file;
+		if(!file.contains("./public")){
+			file = "./public" + file;
 		}
 		MessageDigest md = MessageDigest.getInstance("MD5");
 		md.update(Files.readAllBytes(Paths.get(file)));
@@ -948,13 +948,13 @@ public class SimpleServer {
 		}
 		System.out.println("if_mod_flag  :"+if_mod_flag);
 		if(fileName.equals("/")){
-			directory = "../public";
+			directory = "./public";
 		}
 		else if(fileName.contains("http:")){
 			fileName = fileName.substring(fileName.indexOf("//")+2);
 			fileName = fileName.substring(fileName.indexOf("/"));
 			if(fileName.contains(".jpeg")){
-				directory = "../public";
+				directory = "./public";
 				filename = fileName.substring(fileName.lastIndexOf('/')+1);
 			}else{
 				directory = fileName.substring(0,fileName.lastIndexOf("/"));
@@ -962,7 +962,7 @@ public class SimpleServer {
 			}
 			System.out.println("file NOW :"+fileName);
 		}
-		else if(fileName.contains("../public") && !fileName.contains(".html")){
+		else if(fileName.contains("./public") && !fileName.contains(".html")){
 			directory = fileName.substring(0,fileName.lastIndexOf('/'));
 			filename = fileName.substring(fileName.lastIndexOf('/')+1);
 		}else{
@@ -981,34 +981,34 @@ public class SimpleServer {
 		}
 		System.out.println("DIrectory 2 :"+directory);
 		File currentDir = new File(directory);
-		if(directory.equals("../public")){
+		if(directory.equals("./public")){
 			System.out.println("Here 1");
 			filename = "index.html";
 
-		}else if(!directory.contains("../public") && !directory.contains("/public") && !directory.contains("/a1-test") && !directory.contains("/a2-test")){
+		}else if(!directory.contains("./public") && !directory.contains("/public") && !directory.contains("/a1-test") && !directory.contains("/a2-test")){
 			System.out.println("Here 2");
 			try{
-				directory = "../public/a1-test/" + directory;
+				directory = "./public/a1-test/" + directory;
 				return fileExists(currentDir,filename);
 			}catch(Exception e){
-				directory = "../public/a1-test/" + directory;
+				directory = "./public/a1-test/" + directory;
 				return fileExists(currentDir,filename);
 			}
 
 		}
-		else if(!directory.contains("../public") && !directory.contains("/public") && fileName.contains("directory3isempty")){
+		else if(!directory.contains("./public") && !directory.contains("/public") && fileName.contains("directory3isempty")){
 			System.out.println("Here 3");
-			directory = "../public" + directory;
+			directory = "./public" + directory;
 			return fileExists(currentDir,filename);
 
 		}
-		else if(!directory.contains("../public") && !directory.contains("/public")){
+		else if(!directory.contains("./public") && !directory.contains("/public")){
 			System.out.println("Here 4");
-			directory = "../public" + directory;
+			directory = "./public" + directory;
 			directoryStructure = getDirectoryList(new File(directory));
 			return true;
 		}
-		else if(directory.equals("../public/a2-test")){
+		else if(directory.equals("./public/a2-test")){
 			System.out.println("Here 5");
 			filename = "";
 			directoryStructure = getDirectoryList(new File(directory));
@@ -1158,7 +1158,7 @@ public class SimpleServer {
 
 		System.out.println("File :"+filePath);
 		if(!filePath.contains("public")){
-			filePath = "../public" + filePath;
+			filePath = "./public" + filePath;
 		}
 		File file = new File(filePath);
 
@@ -1203,7 +1203,7 @@ public class SimpleServer {
 
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
 		System.out.println("URL Encoded ---"+fileDir);
-		fileDir = "../public" + fileDir;
+		fileDir = "./public" + fileDir;
 		String fileName = fileDir.substring(fileDir.lastIndexOf('/')+1);
 		fileDir = fileDir.substring(0,fileDir.lastIndexOf('/'));
 		File file = new File(fileDir);
