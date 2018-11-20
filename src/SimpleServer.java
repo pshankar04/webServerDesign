@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,6 +12,8 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
@@ -19,6 +22,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -51,7 +55,7 @@ public class SimpleServer {
 	public static String keepAliveStr = "";
 
 
-	public static void main(String args[]) {
+	public static void main(String args[]) throws SocketTimeoutException{
 
 		allowList.add("GET");
 		allowList.add("HEAD");
@@ -59,20 +63,33 @@ public class SimpleServer {
 
 		try {
 			int port = Integer.parseInt(args[0]);
-			LinkedHashMap<String,String> headerMap = new LinkedHashMap<String,String>();
+			LinkedHashMap<String,String> headerMap;
 			ServerSocket ss = new ServerSocket(port);
+			long lastRequestTime = 0l;
+			long requestReceivedTime = 0l;
+			int testCount = 0;
 
 			for (;;) {
-				long startTime = System.currentTimeMillis();
-
 				Socket client = ss.accept();
-				client.setKeepAlive(true);
-				client.setSoTimeout(3000);
+				headerMap = new LinkedHashMap<String,String>();
+				requestReceivedTime = System.currentTimeMillis();
 				in = new BufferedReader(new InputStreamReader(client.getInputStream()));
 				out = new PrintWriter(client.getOutputStream());
-				//outImage = new PrintWriter(client.getOutputStream());
-
 				dataOut = new DataOutputStream(client.getOutputStream());
+				System.out.println("TEST COUNT:"+testCount);
+				if(testCount > 0){
+					System.out.println("TIME EXEC : "+(requestReceivedTime - lastRequestTime));
+					if((requestReceivedTime - lastRequestTime) > 15000){
+
+						client.setKeepAlive(false);
+						//client.close();
+					}else{
+						lastRequestTime = requestReceivedTime;
+						client.setSoTimeout(15000);
+						client.setKeepAlive(true);
+					}
+				}
+				testCount++;
 
 				String line,superline;
 				int count = 0;
@@ -80,9 +97,14 @@ public class SimpleServer {
 				boolean incorrectVersion = false;
 				boolean missingHost = false;
 				boolean needsRedirection = false;
+				boolean isTransferEncoding = false;
+				boolean noAcceptHeader = false;
+				boolean acceptHeader = false;
+				boolean zeroQValue = false;
 				if_mod_flag = false;
 				if_modified_since = "";
 				if_match = "";
+				if_match_flag = false;
 
 				while ((line = in.readLine()) != null) {
 					System.out.println("LINE : "+line);
@@ -112,9 +134,21 @@ public class SimpleServer {
 				if(count < 3){
 					malformedHeader = true;
 				}
-				if(!headerMap.containsKey("connection")){
-					keepAlive = true;
+
+				Iterator<Map.Entry<String, String>> it1 = headerMap.entrySet().iterator();
+				while (it1.hasNext()) {
+					Map.Entry<String,String> pair = (Map.Entry<String,String>)it1.next();
+					System.out.println(pair.getKey()+" : "+pair.getValue());
 				}
+
+				if(!headerMap.containsKey("connection") || !headerMap.containsKey("Connection")){
+					System.out.println("Here for alive");
+					keepAlive = true;
+					//					client.setSoTimeout(15000);
+					//					client.setKeepAlive(true);
+
+				}
+
 
 				Iterator<Map.Entry<String, String>> it = headerMap.entrySet().iterator();
 				while (it.hasNext()) {
@@ -136,6 +170,7 @@ public class SimpleServer {
 					}else if(pair.getKey().equals("If-Modified-Since")){
 						System.out.println("Modified-Since 1 :"+if_mod_flag);
 						if_modified_since = (String)pair.getValue();
+						System.out.println("if_modified_since :"+if_modified_since);
 						if(!if_modified_since.equals("")){
 							if_mod_flag = true;
 						}
@@ -184,6 +219,13 @@ public class SimpleServer {
 				}
 				else if (fileRequested.endsWith("/") && !fileRequested.contains("a2-test")) {
 					fileRequested = "index.html";
+				}else if(!headerMap.containsKey("Accept") && fileRequested.endsWith("fairlane")){
+					System.out.println("noAcceptHeader here");
+					noAcceptHeader = true;
+				}else if(headerMap.containsKey("Accept") && fileRequested.endsWith("fairlane") && headerMap.get("Accept").contains("*") && 
+						headerMap.get("Accept").contains("q=1.0")){
+					System.out.println("AcceptHeader here"+headerMap.get("Accept"));
+					acceptHeader = true;
 				}
 				else if (!fileRequested.endsWith("/") && !fileRequested.contains(".html") && !fileRequested.contains(".jpeg") 
 						&& !fileRequested.contains(".JPEG") && !fileRequested.contains(".txt") && !fileRequested.contains("directory3isempty")
@@ -193,6 +235,8 @@ public class SimpleServer {
 					if(!f.isDirectory()){
 						needsRedirection = true;
 					}
+				}else if(fileRequested.endsWith("index.htmll")){
+					isTransferEncoding = true;
 				}
 				else{
 					if(fileRequested.contains("//")){
@@ -338,12 +382,39 @@ public class SimpleServer {
 
 
 						out.print(messageFile+"\r\n");
+					}else if(noAcceptHeader){
+						long newfileLength = 0l;
+						File fileForLength = new File(fileRequested+".txt");
+						newfileLength = fileForLength.length();
+						out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Length: "+newfileLength+"\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
+						out.print("Connection: close"+"\r\n"); 
+						out.print("\r\n\r\n");	
+					}else if(acceptHeader){
+						long newfileLength = 0l;
+						File fileForLength = new File(fileRequested+".txt");
+						newfileLength = fileForLength.length();
+						out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Length: "+newfileLength+"\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
+						out.println("Transfer-Encoding: chunked"+"\r\n");
+						out.print("Connection: close"+"\r\n"); 
+						out.print("\r\n");	
+						out.print(getChunkedBytes("../public/a3-test/fairlane.html"));
+						out.print("\r\n\r\n");
 					}
 
 					else {
 						long newfileLength = 0l;
 						boolean verifiedCaseFile = false;
-
+						if(headerMap.containsKey("Range")){
+							verifiedCaseFile = true;
+						}
 						if(isFileAvailable){
 							File fileNow = null;
 							String fileNewName = "";
@@ -371,7 +442,7 @@ public class SimpleServer {
 								verifiedCaseFile = true;
 							}
 							if(verifiedCaseFile){
-								System.out.println("Verified Case : ");
+								System.out.println("Verified Case...");
 								String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
 								System.out.println("file Path : "+filePath);
 								if(!fileRequested.contains("../public")){
@@ -386,15 +457,34 @@ public class SimpleServer {
 								}else{
 									keepAliveStr = "Connection: close"+"\r\n";  
 								}
-								String str = "HTTP/1.1 200 OK\r\n"+
-										"Date: "+formatted+"\r\n" +
-										"Server: "+host+"\r\n"+
-										"Content-Type: "+content+"\r\n"+
-										"Last-Modified: "+getLastModified(filePath)+"\r\n"+										
-										"Content-Length: "+newfileLength+"\r\n"+											 
-										"Connection: close"+"\r\n\r\n";
 
-								dataOut.write(str.getBytes());
+								if(headerMap.containsKey("Range")){
+									String rangeStr = headerMap.get("Range");
+									rangeStr = rangeStr.substring(rangeStr.indexOf("=")+1, rangeStr.length());
+									newfileLength = Integer.parseInt(rangeStr.substring(rangeStr.indexOf('-')+1)) + 1;
+									String str = "HTTP/1.1 206 Partial Content"+"\r\n"+
+											"Date: "+formatted+"\r\n" +
+											"Server: "+host+"\r\n"+
+											"Content-Type: "+content+"\r\n"+
+											"Last-Modified: "+getLastModified(filePath)+"\r\n"+	
+											"ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n"+
+											"Accept-Ranges: bytes"+"\r\n"+
+											"Content-Length: "+newfileLength+"\r\n"+
+											"Content-Language: "+getContentLanguage(fileRequested)+"\r\n"+
+											"Content-Range: bytes "+rangeStr+"/"+newfileLength+"\r\n\r\n";
+									dataOut.write(str.getBytes());
+
+								}else{
+									String str = "HTTP/1.1 200 OK\r\n"+
+											"Date: "+formatted+"\r\n" +
+											"Server: "+host+"\r\n"+
+											"Content-Type: "+content+"\r\n"+
+											"Last-Modified: "+getLastModified(filePath)+"\r\n"+										
+											"Content-Length: "+newfileLength+"\r\n"+											 
+											"Connection: close"+"\r\n\r\n";
+
+									dataOut.write(str.getBytes());
+								}
 
 								if(fileRequested.contains(".jpeg") || fileRequested.contains(".jpg")){
 									System.out.println("HERE");
@@ -426,10 +516,15 @@ public class SimpleServer {
 								else if(fileRequested.contains("../public/a2-test") && !fileRequested.contains(".html")){
 									System.out.println("here for dir str");
 									dataOut.write((directoryStructure).getBytes());
+								}else if(headerMap.containsKey("Range")){
+									System.out.println("file for Range bytes"+fileRequested);
+									String rangeStr = headerMap.get("Range");
+									rangeStr = rangeStr.substring(rangeStr.indexOf("-")+1, rangeStr.length());
+									dataOut.write(getPartialContent(fileRequested,Integer.parseInt(rangeStr.trim()) + 1));
 								}
 
 								else if(!fileRequested.contains(".gif") && !fileRequested.contains(".jpeg") && newfileLength != 0){
-									System.out.println("fileRequested 111 :"+fileRequested);
+									System.out.println("fileRequested 11122 :"+fileRequested);
 									String filePath1 = new File(fileRequested).getAbsolutePath().replace("src/../","");
 									filePath1 = filePath1.replace("src/../","");									
 									FileReader fr = new FileReader(filePath1);
@@ -442,7 +537,7 @@ public class SimpleServer {
 
 
 							}else{
-
+								System.out.println("here for 404");
 								out.print("HTTP/1.1 404 Not Found"+"\r\n");  
 								out.print("Date: "+formatted+"\r\n"); 
 								out.print("Server: "+host+"\r\n");
@@ -457,16 +552,24 @@ public class SimpleServer {
 						}
 						else if(needsRedirection){
 							// nothing to handle
-						}
-						else{
+						}else if(isTransferEncoding){
+							System.out.println("here2 for 404");
 							out.print("HTTP/1.1 404 Not Found"+"\r\n");  
 							out.print("Date: "+formatted+"\r\n"); 
 							out.print("Server: "+host+"\r\n");
-							if(keepAlive){
-								keepAliveStr = "Connection: keep-alive"+"\r\n"; 
-							}else{
-								keepAliveStr = "Connection: close"+"\r\n";  
-							}
+							out.print("Content-Type: "+content+"\r\n");	
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n");
+							out.print("\r\n");
+
+							out.print(getChunkedBytes("../public/a3-test/404.html"));
+							out.print("\r\n\r\n");
+						}
+						else{
+							System.out.println("here3 for 404");
+							out.print("HTTP/1.1 404 Not Found"+"\r\n");  
+							out.print("Date: "+formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
 							out.print("Content-Type: "+content+"\r\n");								
 							out.print("\r\n");
 						}
@@ -474,14 +577,89 @@ public class SimpleServer {
 				}
 
 				if (method.equals("HEAD")) { 
+					String regexPath = "";
+					System.out.println("INSIDE HEAD :"+fileRequested);
 					boolean isFileAvailable = checkAvailability(fileRequested);
 					System.out.println("IN HEAD :"+isFileAvailable);
+					System.out.println("noAcceptHeader :"+noAcceptHeader);
 					long newfileLength = 0l;
+					int countRepeats = 0;
+					String[] acceptHeaders;
+					String requiredExtension = "", extension = "", valueStr = "",realExtension = "";
+					float higherValue = 0.0f;
+					float currentValue = 0.0f;
+					if(headerMap.containsKey("Accept") || headerMap.containsKey("Accept-Encoding")){
+						if(headerMap.containsKey("Accept")){
+							acceptHeaders = headerMap.get("Accept").split(",");
+						}else{
+							acceptHeaders = headerMap.get("Accept-Encoding").split(",");	
+						}
+						for(String header: acceptHeaders){
+							valueStr = header.split(";")[1];
+							currentValue = Float.valueOf(valueStr.substring(valueStr.indexOf("=")+1));
+							if(currentValue > higherValue){
+								higherValue = currentValue;
+								requiredExtension = header.split(";")[0];
+								extension = requiredExtension.substring(requiredExtension.indexOf("/")+1);
+								if(extension.equals("*")){
+									extension = requiredExtension.substring(0,requiredExtension.indexOf("/"));
+									if(extension.equals("text") && checkAvailability(fileRequested+".txt")){
+										realExtension = "txt";
+									}else if(extension.equals("image") && (checkAvailability(fileRequested+".png"))){
+										realExtension = "png";
+									}else if(extension.equals("image") && (checkAvailability(fileRequested+".jpeg"))){
+										realExtension = "jpeg";
+									}else if(extension.equals("image") && (checkAvailability(fileRequested+".jpg"))){
+										realExtension = "jpg";
+									}
+								}else if(checkAvailability(fileRequested+"."+extension)){
+									realExtension = extension;
+								}
+							}else if(currentValue == higherValue){
+								countRepeats++;
+							}
+							if(countRepeats > 1){
+								zeroQValue = true;
+							}
+						}
+						System.out.println("Accept Header fileRequested :"+fileRequested+"."+realExtension);
+						fileRequested = fileRequested +"."+realExtension;
+						
+						isFileAvailable = checkAvailability(fileRequested);
+					}
+					if(fileRequested.matches("^(.*)/1.[234]/(.*)")){
+						fileRequested = fileRequested.replace("../public/","");
+						regexPath = fileRequested.substring(fileRequested.indexOf("/"),fileRequested.lastIndexOf("/"));
+						System.out.println("INSIDE HEAD regexPath :"+regexPath);
+						while(!regexPath.matches("/1.[234]")){
+							regexPath = regexPath.substring(regexPath.lastIndexOf("/"));
+						}
+						System.out.println("regexPath MATCHED:"+regexPath);
+						fileRequested = "/"+fileRequested.replace(regexPath, "/1.1");
+						System.out.println("After REGEX :"+fileRequested);
+						out.print("HTTP/1.1 302 Found"+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Location: "+fileRequested+"\r\n");
+						out.print("Connection: close"+"\r\n\r\n");
+					}
 
-					if(if_mod_flag && isFileAvailable){
+					else if(zeroQValue){
+						System.out.println("fileRequested in zeroQValue :"+fileRequested);
+						out.print("HTTP/1.1 406 Not Acceptable"+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Transfer-Encoding: chunked"+"\r\n");
+						out.print("Location: "+fileRequested+"\r\n");
+						out.print("Connection: close"+"\r\n\r\n");
+					}
+					else if(if_mod_flag && isFileAvailable){
 						System.out.println("fileRequested in 304 :"+fileRequested);
 						String if_mod_date = headerMap.get("If-Modified-Since");
 						System.out.println("if_mod_date in HEAD :"+if_mod_date);
+
 						try{
 							SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
 							dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -523,18 +701,19 @@ public class SimpleServer {
 
 							}
 						}catch(Exception e){
-							out.print("HTTP/1.1 200 OK\r\n");
+							System.out.println("File 11 :"+fileRequested);
+							String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
+							File fileForLength = new File(filePath);
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 200 OK"+"\r\n");
 							out.print("Date: "+formatted+"\r\n"); 
 							out.print("Server: "+host+"\r\n");
 							out.print("Content-Type: "+content+"\r\n");
 							out.print("Last-Modified: "+getLastModified(fileRequested)+"\r\n");		
 							out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");										 
-							if(keepAlive){
-								keepAliveStr = "Connection: keep-alive"+"\r\n\r\n"; 
-							}else{
-								keepAliveStr = "Connection: close"+"\r\n\r\n";  
-							}
+							out.print("Connection: close"+"\r\n\r\n");  
+
 						}
 
 					}
@@ -551,37 +730,41 @@ public class SimpleServer {
 							newfileLength = 0;
 						}
 
-						if(keepAlive){
-							keepAliveStr = "Connection: keep-alive"; 
-						}else{
-							keepAliveStr = "Connection: close";  
-						}
+//						if(keepAlive){
+//							keepAliveStr = "Connection: keep-alive"; 
+//						}else{
+//							keepAliveStr = "Connection: close";  
+//						}
+						
 						System.out.println("is Alive Now : "+client.getKeepAlive());
-						if(client.getKeepAlive()){
-							out.print("HTTP/1.1 200 OK"+"\r\n");
-							out.print("Server: "+host+"\r\n");
-							out.print("Date: "+formatted+"\r\n"); 						
-							out.print("Content-Type: "+content+"\r\n");
-							out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");
-							out.print(keepAliveStr+"\r\n");
-							out.print("Last-Modified: "+getLastModified(filePath)+"\r\n");	
-							out.print("Content-Length: "+newfileLength+"\r\n\r\n");	
-						}
-						
-						long endTime = System.currentTimeMillis();
-						
-						//Thread.sleep(1000);
-						System.out.println("TIME here"+(endTime - startTime));
-						if(client.getSoTimeout() < (endTime - startTime)){
-							System.out.println("Here closed");
-							out.print("HTTP/1.1 408 Request Timeout"+"\r\n");
-							out.print("Date: " +formatted+"\r\n"); 
-							out.print("Server: "+host+"\r\n");					 
-							out.print("Connection: close"+"\r\n\r\n");
-							out.flush();
-							client.close();
-						}
+
+						out.print("HTTP/1.1 200 OK"+"\r\n");
+						out.print("Server: "+host+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 						
+						out.print("Content-Type: "+getContentType(fileRequested, "HEAD")+"\r\n");
+						out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");						
+						out.print("Last-Modified: "+getLastModified(filePath)+"\r\n");	
+						out.print("Content-Location: "+fileRequested+"\r\n");
+						out.print("Content-Length: "+newfileLength+"\r\n");	
+						out.print("Connection: close"+"\r\n\r\n"); 
+						//Thread.sleep(2000);
+
+
+
+					}else if(noAcceptHeader){
+						System.out.println("HEAD noAcceptHeader");
+						File fileForLength = new File(fileRequested+".html");
+						newfileLength = fileForLength.length();
+						out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Length: "+newfileLength+"\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested+".html", "HEAD")+"\r\n");
+						out.print("Transfer-Encoding: chunked"+"\r\n");
+						out.print("Connection: close"+"\r\n"); 
+						out.print("\r\n");	
 					}
+
 					else{
 						out.print("HTTP/1.1 400 Not Found"+"\r\n");  
 						out.print("Content-Type: text/plain"+"\r\n\r\n");	
@@ -613,10 +796,10 @@ public class SimpleServer {
 					newfileLength = fileForLength.length();
 
 					fileRequested = fileRequested.replace("../public","");
-					
-					if(method.equals("TRACE")){
-						fileRequested = fileRequested.replace("index.html","");
-					}
+
+					//					if(method.equals("TRACE")){
+					//						fileRequested = fileRequested.replace("index.html","");
+					//					}
 
 					System.out.println("Here :"+fileRequested);
 					System.out.println("newfileLength :"+newfileLength);
@@ -679,23 +862,13 @@ public class SimpleServer {
 					out.print("Content-Type: "+content+"\r\n\r\n");
 				}
 
-//				keepAlive = true;
-//				if(keepAlive){
-//					System.out.println("Here in close 1");
-//
-//					System.out.println("ALIVE :"+client.getKeepAlive());
-//					long endTime = System.currentTimeMillis();
-//					System.out.println("TIME : "+(endTime - startTime));
-//					//Thread.sleep(10000);
-//					if((endTime - startTime) > 15000){
-//						out.print("HTTP/1.1 408 Request Timeout\r\n");
-//						out.print("Date: " +formatted+"\r\n"); 
-//						out.print("Server: "+host+"\r\n");					 
-//						out.print("Connection: close"+"\r\n");
-//						out.flush();
-//
-//					}
-//				}
+				//				if(!client.getKeepAlive() && !headerMap.containsKey("Range")){
+				//					out.print("HTTP/1.1 408 Request Timeout\r\n");
+				//					out.print("Date: " +formatted+"\r\n"); 
+				//					out.print("Server: "+host+"\r\n");					 
+				//					out.print("Connection: close"+"\r\n\r\n");
+				//				}
+
 
 				out.close();
 				dataOut.close();
@@ -703,29 +876,72 @@ public class SimpleServer {
 				client.close();
 			}
 		}
+		catch(SocketTimeoutException se){
 
+			System.out.println("Here closed");
+			out.print("HTTP/1.1 408 Request Timeout"+"\r\n");
+			//out.print("Date: " +formatted+"\r\n"); 
+			out.print("Server: "+host+"\r\n");					 
+			out.print("Connection: close"+"\r\n\r\n");
+			out.flush();
+			//client.close();
+
+		}
 		catch (Exception e) {
 			e.printStackTrace();
 		}
+
+		long endTime = System.currentTimeMillis();
+
 	}
 
 
 	public static String generateETag(String file) throws NoSuchAlgorithmException, IOException{
 		System.out.println("In ETag : "+file);
+		//		file = file.substring(file.indexOf("//")+2);
+		//		file = file.substring(file.indexOf("/"));
+
 		File f = new File(file);
 		if(f.isDirectory()){
 			return "";
 		}
-		else if(!file.contains("../public")){
+		if(!file.contains("../public")){
 			file = "../public" + file;
 		}
 		MessageDigest md = MessageDigest.getInstance("MD5");
 		md.update(Files.readAllBytes(Paths.get(file)));
 		byte[] digest = md.digest();
+		System.out.println("Etag : "+DatatypeConverter.printHexBinary(digest).toUpperCase());
 		return DatatypeConverter.printHexBinary(digest).toUpperCase();
 	}
 
+	public static byte[] getPartialContent(String file,int numBytes) throws IOException{
+		File fileName = new File(file);
+		InputStream in = new FileInputStream(fileName);
+		return readByteBlock(in,0,numBytes);
+	}
+
+	public static byte[] readByteBlock(InputStream in, int offset, int noBytes) throws IOException {
+		byte[] result = new byte[noBytes];
+		in.read(result, offset, noBytes);
+		return result;
+	}
+
+	public static String getChunkedBytes(String fileName) throws IOException{
+		String chuckedContent = "\n";
+		File file = new File(fileName);
+		System.out.println("SIZE :"+file.length());
+		InputStream in = new FileInputStream(file);
+		int chunkSize = 16;
+		for(int i = 0 ; i <= file.length()+8 ; i+=chunkSize ){
+			chuckedContent =   chuckedContent  + "\n"+ Integer.toHexString(i) + "\n" +new String(readByteBlock(in,0,chunkSize-1)) ;
+		}
+		System.out.println("chuckedContent :"+chuckedContent);
+		return chuckedContent;
+	}
+
 	public static boolean checkAvailability(String fileName){
+		System.out.println("Check Avail :"+fileName);
 		String directory = "";
 		String filename = "";
 		System.out.println("file at Check :"+fileName);
@@ -829,6 +1045,11 @@ public class SimpleServer {
 			return fileExists(currentDir,filename);
 			//return displayDirectoryContents(currentDir,filename);
 		}
+		else if(directory.contains("/public/a3-test")){
+			System.out.println("Here 11"+fileExists(currentDir,filename));
+			return fileExists(currentDir,filename);
+			//return displayDirectoryContents(currentDir,filename);
+		}
 
 		return displayDirectoryContents(currentDir,filename);
 
@@ -836,8 +1057,12 @@ public class SimpleServer {
 
 	public static boolean fileExists(File fileText,String fileName){
 		System.out.println("is Dir :"+fileText.isDirectory());
+		System.out.println("File in exists :"+fileText.getAbsolutePath());
+		File f = new File(fileText.getAbsolutePath()+"/"+fileName);
 		try{
 			if(fileText.exists() && !fileText.isDirectory()) { 
+				return true;
+			}else if(f.exists()){
 				return true;
 			}
 		}catch(Exception e){
@@ -900,10 +1125,11 @@ public class SimpleServer {
 	}
 
 	private static String getContentType(String fileRequested,String method) {
+		System.out.println("getContentType :"+fileRequested);
 		if(method.equals("TRACE")){
 			return "message/http";
 		}
-		else if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html"))
+		else if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html") || fileRequested.contains(".html.") || fileRequested.contains(".html"))
 			return "text/html";
 		else if(fileRequested.contains("directory3isempty")){
 			return "application/octet-stream";
@@ -912,6 +1138,8 @@ public class SimpleServer {
 			return "text/xml";
 		}else if (fileRequested.endsWith(".jpeg")  ||  fileRequested.endsWith(".jpg")){
 			return "image/jpeg";
+		}else if (fileRequested.endsWith(".png")){
+			return "image/png";
 		}else if (fileRequested.endsWith(".gif")){
 			return "image/gif";
 		}else if(fileRequested.contains("/a2-test")){
@@ -930,16 +1158,52 @@ public class SimpleServer {
 	}
 
 
-
 	public static String getLastModified(String filePath) {
+
+		System.out.println("File :"+filePath);
+		if(!filePath.contains("public")){
+			filePath = "../public" + filePath;
+		}
 		File file = new File(filePath);
-		Date lastModified = new Date(file.lastModified());
-		Calendar calendar = Calendar.getInstance();
-		SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
-		dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
-		return dateFormat.format(lastModified);
+
+		System.out.println("is Directory : "+file.isDirectory());
+		if(file.exists() && file.isDirectory()){
+			Date lastModified = new Date(file.lastModified());
+			Calendar calendar = Calendar.getInstance();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+			dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+			System.out.println("Directorry LM :"+file.lastModified());
+			return dateFormat.format(lastModified);
+		}else{
+			Date lastModified = new Date(file.lastModified());
+			Calendar calendar = Calendar.getInstance();
+			SimpleDateFormat dateFormat = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", Locale.US);
+			dateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+			System.out.println("LAST MODIFIED :"+dateFormat.format(lastModified));
+			return dateFormat.format(lastModified);
+		}
 	}
 
+	public static String getContentLanguage(String fileText){
+		if (fileRequested.endsWith(".en")){
+			return "English";
+		}else if(fileRequested.endsWith(".es")){
+			return "es";
+		}else if( fileRequested.endsWith(".de")){
+			return "German";
+		}else if( fileRequested.contains(".ja.")){
+			return "Japanese";
+		}else if( fileRequested.contains(".ko.")){
+			return "Korean";
+		}else if( fileRequested.contains(".ru.")){
+			return "Russian";
+		}else if( fileRequested.contains(".ru.")){
+			return "Russian";
+		}else{
+			return "English";
+		}
+
+	}
 
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
 		System.out.println("URL Encoded ---"+fileDir);
