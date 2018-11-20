@@ -40,7 +40,7 @@ public class SimpleServer {
 	public static String if_modified_since = "";
 	public static String if_match = "";
 	public static boolean placeholderTest = false;
-	public static String WEBROOT= "../public";
+	public static String WEBROOT= "./public";
 	public static ArrayList<String> allowList = new ArrayList<String>();
 	public static BufferedReader in;
 	public static PrintWriter out;
@@ -541,11 +541,7 @@ public class SimpleServer {
 								out.print("HTTP/1.1 404 Not Found"+"\r\n");  
 								out.print("Date: "+formatted+"\r\n"); 
 								out.print("Server: "+host+"\r\n");
-								if(keepAlive){
-									keepAliveStr = "Connection: keep-alive"+"\r\n"; 
-								}else{
-									keepAliveStr = "Connection: close"+"\r\n";  
-								}
+								out.print("Connection: close"+"\r\n");
 								out.print("Content-Type: "+content+"\r\n");								
 								out.print("\r\n");
 							}
