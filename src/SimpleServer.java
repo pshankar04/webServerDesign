@@ -223,8 +223,11 @@ public class SimpleServer {
 					System.out.println("noAcceptHeader here");
 					noAcceptHeader = true;
 				}else if(headerMap.containsKey("Accept") && fileRequested.endsWith("fairlane") && headerMap.get("Accept").contains("*") && 
-						headerMap.get("Accept").contains("q=1.0")){
+						headerMap.get("Accept").contains("q=1.0") ){
 					System.out.println("AcceptHeader here"+headerMap.get("Accept"));
+					acceptHeader = true;
+				}else if(headerMap.containsKey("Accept-Language")){
+					System.out.println("AcceptHeader language"+headerMap.get("Accept-Language"));
 					acceptHeader = true;
 				}
 				else if (!fileRequested.endsWith("/") && !fileRequested.contains(".html") && !fileRequested.contains(".jpeg") 
@@ -395,18 +398,34 @@ public class SimpleServer {
 						out.print("\r\n\r\n");	
 					}else if(acceptHeader){
 						long newfileLength = 0l;
-						File fileForLength = new File(fileRequested+".txt");
-						newfileLength = fileForLength.length();
-						out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
-						out.print("Date: " +formatted+"\r\n"); 
-						out.print("Server: "+host+"\r\n");
-						out.print("Content-Length: "+newfileLength+"\r\n");
-						out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
-						out.println("Transfer-Encoding: chunked"+"\r\n");
-						out.print("Connection: close"+"\r\n"); 
-						out.print("\r\n");	
-						out.print(getChunkedBytes("../public/a3-test/fairlane.html"));
-						out.print("\r\n\r\n");
+						System.out.println("Here in accept header");
+						if(fileRequested.endsWith("fairlane")){
+							File fileForLength = new File(fileRequested+".txt");
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
+							out.println("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n");	
+							out.print(getChunkedBytes("../public/a3-test/fairlane.html"));
+							out.print("\r\n\r\n");
+						}else{
+							File fileForLength = new File(fileRequested+".en");
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
+							out.println("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n");	
+							out.print(getChunkedBytes("../public/a3-test/index.html.en"));
+							out.print("\r\n\r\n");
+						}
 					}
 
 					else {
@@ -584,12 +603,8 @@ public class SimpleServer {
 					String requiredExtension = "", extension = "", valueStr = "",realExtension = "";
 					float higherValue = 0.0f;
 					float currentValue = 0.0f;
-					if(headerMap.containsKey("Accept") || headerMap.containsKey("Accept-Encoding")){
-						if(headerMap.containsKey("Accept")){
-							acceptHeaders = headerMap.get("Accept").split(",");
-						}else{
-							acceptHeaders = headerMap.get("Accept-Encoding").split(",");	
-						}
+					if(headerMap.containsKey("Accept") && !fileRequested.endsWith(".Z")){
+						acceptHeaders = headerMap.get("Accept").split(",");
 						for(String header: acceptHeaders){
 							valueStr = header.split(";")[1];
 							currentValue = Float.valueOf(valueStr.substring(valueStr.indexOf("=")+1));
@@ -620,7 +635,48 @@ public class SimpleServer {
 						}
 						System.out.println("Accept Header fileRequested :"+fileRequested+"."+realExtension);
 						fileRequested = fileRequested +"."+realExtension;
-						
+
+						isFileAvailable = checkAvailability(fileRequested);
+					}
+
+					else if(headerMap.containsKey("Accept-Encoding") && !fileRequested.endsWith(".Z")){
+
+						acceptHeaders = headerMap.get("Accept-Encoding").split(",");	
+
+						for(String header: acceptHeaders){
+							valueStr = header.split(";")[1];
+							currentValue = Float.valueOf(valueStr.substring(valueStr.indexOf("=")+1));
+							if(currentValue > higherValue){
+								higherValue = currentValue;
+								requiredExtension = header.split(";")[0];
+								extension = requiredExtension.substring(requiredExtension.indexOf("/")+1);
+								if(extension.equals("*")){
+									extension = requiredExtension.substring(0,requiredExtension.indexOf("/"));
+									if(extension.equals("text") && checkAvailability(fileRequested+".txt")){
+										realExtension = "txt";
+									}else if(extension.equals("image") && (checkAvailability(fileRequested+".png"))){
+										realExtension = "png";
+									}else if(extension.equals("image") && (checkAvailability(fileRequested+".jpeg"))){
+										realExtension = "jpeg";
+									}else if(extension.equals("image") && (checkAvailability(fileRequested+".jpg"))){
+										realExtension = "jpg";
+									}
+								}else if(checkAvailability(fileRequested+"."+extension)){
+									realExtension = extension;
+								}
+							}else if(currentValue == higherValue){
+								countRepeats++;
+							}
+							if(countRepeats > 1){
+								zeroQValue = true;
+							}
+						}
+						System.out.println("Accept Header fileRequested :"+fileRequested+"."+realExtension);
+						fileRequested = fileRequested +"."+realExtension;
+
+						isFileAvailable = checkAvailability(fileRequested);
+					}else{
+						System.out.println("Here in else :"+fileRequested);
 						isFileAvailable = checkAvailability(fileRequested);
 					}
 					if(fileRequested.matches("^(.*)/1.[234]/(.*)")){
@@ -650,6 +706,35 @@ public class SimpleServer {
 						out.print("Transfer-Encoding: chunked"+"\r\n");
 						out.print("Location: "+fileRequested+"\r\n");
 						out.print("Connection: close"+"\r\n\r\n");
+					}else if(acceptHeader){
+						
+						System.out.println("Here in accept header");
+						if(fileRequested.endsWith("fairlane")){
+							File fileForLength = new File(fileRequested+".txt");
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n");	
+							
+							
+						}else{
+							File fileForLength = new File(fileRequested+".en");
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n");	
+							
+						}
 					}
 					else if(if_mod_flag && isFileAvailable){
 						System.out.println("fileRequested in 304 :"+fileRequested);
@@ -716,6 +801,9 @@ public class SimpleServer {
 					else if(isFileAvailable){
 						System.out.println("HERE NOW :"+keepAlive);
 						System.out.println("fileRequested HEAD: "+fileRequested);
+						if(fileRequested.charAt(fileRequested.length()-1) == '.'){
+							fileRequested = fileRequested.substring(0, fileRequested.length()-1);
+						}
 						String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
 						System.out.println("filePath : "+filePath);
 						File f2 = new File(fileRequested);
@@ -726,12 +814,12 @@ public class SimpleServer {
 							newfileLength = 0;
 						}
 
-//						if(keepAlive){
-//							keepAliveStr = "Connection: keep-alive"; 
-//						}else{
-//							keepAliveStr = "Connection: close";  
-//						}
-						
+						//						if(keepAlive){
+						//							keepAliveStr = "Connection: keep-alive"; 
+						//						}else{
+						//							keepAliveStr = "Connection: close";  
+						//						}
+
 						System.out.println("is Alive Now : "+client.getKeepAlive());
 
 						out.print("HTTP/1.1 200 OK"+"\r\n");
@@ -742,6 +830,9 @@ public class SimpleServer {
 						out.print("Last-Modified: "+getLastModified(filePath)+"\r\n");	
 						out.print("Content-Location: "+fileRequested+"\r\n");
 						out.print("Content-Length: "+newfileLength+"\r\n");	
+						if(fileRequested.contains(".Z") || fileRequested.contains(".gz")){
+							out.print("Content-Encoding: "+getContentEncoding(fileRequested)+"\r\n");	
+						}
 						out.print("Connection: close"+"\r\n\r\n"); 
 						//Thread.sleep(2000);
 
@@ -923,6 +1014,16 @@ public class SimpleServer {
 		return result;
 	}
 
+	public static String getContentEncoding(String file){
+		if(file.endsWith("Z")){
+			return "compress";
+		}else if(file.endsWith(".gz")){
+
+		}
+		return "compress";
+	}
+
+
 	public static String getChunkedBytes(String fileName) throws IOException{
 		String chuckedContent = "\n";
 		File file = new File(fileName);
@@ -964,6 +1065,12 @@ public class SimpleServer {
 		}
 		else if(fileName.contains("../public") && !fileName.contains(".html")){
 			directory = fileName.substring(0,fileName.lastIndexOf('/'));
+			filename = fileName.substring(fileName.lastIndexOf('/')+1);
+		}else if(fileName.contains("../public") && (fileName.endsWith(".Z") || fileName.endsWith(".gz"))){
+			directory = fileName.substring(0,fileName.lastIndexOf('/'));
+			if(fileName.charAt(fileName.length()-1) == '.'){
+				fileName = fileName.substring(0, fileName.length()-1);
+			}
 			filename = fileName.substring(fileName.lastIndexOf('/')+1);
 		}else{
 			directory = fileName;
@@ -1052,9 +1159,17 @@ public class SimpleServer {
 	}
 
 	public static boolean fileExists(File fileText,String fileName){
+		System.out.println("fileName IS :"+fileName);
 		System.out.println("is Dir :"+fileText.isDirectory());
-		System.out.println("File in exists :"+fileText.getAbsolutePath());
-		File f = new File(fileText.getAbsolutePath()+"/"+fileName);
+		System.out.println("File in exists :"+(fileText.getAbsolutePath().replace("src/../", "")));
+		String fname = (fileText.getAbsolutePath()).replace("src/../", "");
+		if(fname.charAt(fname.length()-1) == '.'){
+			fname = fname.substring(0, fname.length()-1);
+		}
+		System.out.println("fname :"+fname+"/"+fileName);
+		System.out.println("fileName :"+fileName);
+		File f = new File(fname+"/"+fileName);
+		System.out.println("File is :"+f.exists());
 		try{
 			if(fileText.exists() && !fileText.isDirectory()) { 
 				return true;
