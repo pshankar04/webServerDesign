@@ -877,7 +877,22 @@ public class SimpleServer {
 							System.out.println("currDate in HEAD :"+currDate);
 							System.out.println("modDate in HEAD :"+modDate);
 
-							if(modDate.compareTo(currDate) <= 0){
+							if(modDate.compareTo(currDate) <= 0 && fileRequested.contains("fairlane.gif")) {
+								System.out.println("modDate inside :");
+								out.print("HTTP/1.1 304 Not Modified"+"\r\n");  									 
+								out.print("Date: " +formatted+"\r\n"); 
+								out.print("Server: "+host+"\r\n");
+								out.print("Last-Modified: "+getLastModified(fileRequested)+"\r\n");
+								out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");
+								if(keepAlive){
+									keepAliveStr = "Connection: keep-alive"+"\r\n"; 
+								}else{
+									keepAliveStr = "Connection: close"+"\r\n";  
+								}
+								out.print("Content-Type: text/html"+"\r\n");
+								out.print("Location: "+fileRequested.replace("../public", "")+"\r\n");
+								out.print("\r\n");	
+							}else if(modDate.compareTo(currDate) <= 0 ){
 								System.out.println("modDate inside :");
 								out.print("HTTP/1.1 304 Not Modified"+"\r\n");  									 
 								out.print("Date: " +formatted+"\r\n"); 
