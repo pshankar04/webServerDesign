@@ -1,5 +1,3 @@
-
-
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -53,6 +51,11 @@ public class SimpleServer {
 	public static boolean if_match_flag = false;
 	public static boolean keepAlive = false;
 	public static String keepAliveStr = "";
+	public static String setString = "";
+	public static String reqSet = "iso-2022-jp";
+	public static LinkedHashMap<String,String> headerMap;
+	public static int lengthForPartialContent = 0;
+	public static int totalLengthForPartialContent = 0;
 
 
 	public static void main(String args[]) throws SocketTimeoutException{
@@ -63,7 +66,7 @@ public class SimpleServer {
 
 		try {
 			int port = Integer.parseInt(args[0]);
-			LinkedHashMap<String,String> headerMap;
+			//			LinkedHashMap<String,String> headerMap;
 			ServerSocket ss = new ServerSocket(port);
 			long lastRequestTime = 0l;
 			long requestReceivedTime = 0l;
@@ -101,6 +104,8 @@ public class SimpleServer {
 				boolean noAcceptHeader = false;
 				boolean acceptHeader = false;
 				boolean zeroQValue = false;
+				boolean acceptCharset = false;
+				boolean send406 = false;
 				if_mod_flag = false;
 				if_modified_since = "";
 				if_match = "";
@@ -229,6 +234,10 @@ public class SimpleServer {
 				}else if(headerMap.containsKey("Accept-Language")){
 					System.out.println("AcceptHeader language"+headerMap.get("Accept-Language"));
 					acceptHeader = true;
+				}else if(headerMap.containsKey("Accept-Language") && headerMap.containsKey("Accept-Charset")){
+					System.out.println("AcceptHeader language"+headerMap.get("Accept-Language"));
+					acceptHeader = true;
+					acceptCharset = true;
 				}
 				else if (!fileRequested.endsWith("/") && !fileRequested.contains(".html") && !fileRequested.contains(".jpeg") 
 						&& !fileRequested.contains(".JPEG") && !fileRequested.contains(".txt") && !fileRequested.contains("directory3isempty")
@@ -289,11 +298,18 @@ public class SimpleServer {
 						System.out.println("Match Test : "+etag.equals(if_match));
 
 						if(!(etag).equals(if_match)){
+							File fileNow = new File(fileRequested);
+							long newfileLength = fileNow.length();
 							out.print("HTTP/1.1 412 Precondition Failed"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
 							out.print("Server: "+host+"\r\n");
-							out.print("Connection: close"+"\r\n"); 
-							out.print("Content-Type: text/html"+"\r\n\r\n");							
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: text/html"+"\r\n");
+							out.print("Connection: close"+"\r\n\r\n"); 
+							out.print(getChunkedBytes("../public/a3-test/412.html"));
+							out.print("\r\n\r\n");
+
 
 						}else if(etag.equals(if_match)){
 							if(!fileRequested.contains("../public")){
@@ -306,18 +322,29 @@ public class SimpleServer {
 									"Date: "+formatted+"\r\n" +
 									"Server: "+host+"\r\n"+
 									"Content-Type: "+content+"\r\n"+
-									"Last-Modified: "+getLastModified(fileRequested)+"\r\n"+										
+									"Last-Modified: "+getLastModified(fileRequested)+"\r\n"+
+									"Content-Language: "+getContentLanguage(fileRequested)+"\r\n"+
 									"Content-Length: "+newfileLength+"\r\n"+											 
 									"Connection: close"+"\r\n\r\n";
 							dataOut.write(str.getBytes());
 
-
-							FileReader fr = new FileReader(fileRequested);
-							BufferedReader br = new BufferedReader(fr);
-							String fileLine;
-							while ((fileLine = br.readLine()) != null) {
-								System.out.println(fileLine+"\n");
-								dataOut.write((fileLine).getBytes());
+							if(fileRequested.endsWith("ru.koi8-r")){
+								File f1 = new File(fileRequested);
+								InputStream inp = new FileInputStream(f1);
+								byte[] buffer=new byte[1024];
+								int readData;
+								while((readData = inp.read(buffer))!=-1){
+									dataOut.write(buffer,0,readData);
+								}
+								dataOut.flush();
+							}else{
+								FileReader fr = new FileReader(fileRequested);
+								BufferedReader br = new BufferedReader(fr);
+								String fileLine;
+								while ((fileLine = br.readLine()) != null) {
+									System.out.println(fileLine+"\n");
+									dataOut.write((fileLine).getBytes());
+								}
 							}
 						}
 					}
@@ -478,9 +505,18 @@ public class SimpleServer {
 								}
 
 								if(headerMap.containsKey("Range")){
+									System.out.println("fileRequested :"+fileRequested);
+									File fname = new File(fileRequested);
+									lengthForPartialContent = (int) fname.length();
 									String rangeStr = headerMap.get("Range");
 									rangeStr = rangeStr.substring(rangeStr.indexOf("=")+1, rangeStr.length());
+									System.out.println("rangeStr :"+rangeStr);
+									int initialIndex = Integer.parseInt(rangeStr.substring(0,rangeStr.indexOf('-')));
+									int finalIndex = Integer.parseInt(rangeStr.substring(rangeStr.indexOf('-') + 1));
+									System.out.println("INDEXXXXXXX :"+initialIndex+"   "+finalIndex);
+									totalLengthForPartialContent = finalIndex - initialIndex + 1;
 									newfileLength = Integer.parseInt(rangeStr.substring(rangeStr.indexOf('-')+1)) + 1;
+
 									String str = "HTTP/1.1 206 Partial Content"+"\r\n"+
 											"Date: "+formatted+"\r\n" +
 											"Server: "+host+"\r\n"+
@@ -488,16 +524,20 @@ public class SimpleServer {
 											"Last-Modified: "+getLastModified(filePath)+"\r\n"+	
 											"ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n"+
 											"Accept-Ranges: bytes"+"\r\n"+
-											"Content-Length: "+newfileLength+"\r\n"+
+											"Content-Length: "+totalLengthForPartialContent+"\r\n"+
 											"Content-Language: "+getContentLanguage(fileRequested)+"\r\n"+
-											"Content-Range: bytes "+rangeStr+"/"+newfileLength+"\r\n\r\n";
+											"Content-Range: bytes "+rangeStr+"/"+lengthForPartialContent+"\r\n\r\n";
 									dataOut.write(str.getBytes());
 
 								}else{
+									System.out.println("Right here...."+filePath);
+
 									String str = "HTTP/1.1 200 OK\r\n"+
 											"Date: "+formatted+"\r\n" +
 											"Server: "+host+"\r\n"+
-											"Content-Type: "+content+"\r\n"+
+											"ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n"+
+											"Content-Type: "+getContentType(fileRequested, "GET")+"\r\n"+
+											"Content-Language: "+getContentLanguage(fileRequested)+"\r\n"+
 											"Last-Modified: "+getLastModified(filePath)+"\r\n"+										
 											"Content-Length: "+newfileLength+"\r\n"+											 
 											"Connection: close"+"\r\n\r\n";
@@ -536,10 +576,20 @@ public class SimpleServer {
 									System.out.println("here for dir str");
 									dataOut.write((directoryStructure).getBytes());
 								}else if(headerMap.containsKey("Range")){
-									System.out.println("file for Range bytes"+fileRequested);
-									String rangeStr = headerMap.get("Range");
-									rangeStr = rangeStr.substring(rangeStr.indexOf("-")+1, rangeStr.length());
-									dataOut.write(getPartialContent(fileRequested,Integer.parseInt(rangeStr.trim()) + 1));
+									System.out.println("file for Range bytes"+fileRequested + "bytes in length :"+totalLengthForPartialContent);
+									dataOut.write(getPartialContent(fileRequested,totalLengthForPartialContent));
+								}
+
+								else if(fileRequested.endsWith("koi8-r")){
+									System.out.println("fileRequested 1112233 :"+fileRequested);
+									File f1 = new File(fileRequested);
+									InputStream inp = new FileInputStream(f1);
+									byte[] buffer=new byte[1024];
+									int readData;
+									while((readData = inp.read(buffer))!=-1){
+										dataOut.write(buffer,0,readData);
+									}
+									dataOut.flush();	
 								}
 
 								else if(!fileRequested.contains(".gif") && !fileRequested.contains(".jpeg") && newfileLength != 0){
@@ -600,10 +650,13 @@ public class SimpleServer {
 					long newfileLength = 0l;
 					int countRepeats = 0;
 					String[] acceptHeaders;
+					String[] acceptHeaderCharSet;
+					String[] acceptHeaderLang;
 					String requiredExtension = "", extension = "", valueStr = "",realExtension = "";
 					float higherValue = 0.0f;
 					float currentValue = 0.0f;
 					if(headerMap.containsKey("Accept") && !fileRequested.endsWith(".Z")){
+						System.out.println("Accept in HEAD"+fileRequested);
 						acceptHeaders = headerMap.get("Accept").split(",");
 						for(String header: acceptHeaders){
 							valueStr = header.split(";")[1];
@@ -615,6 +668,7 @@ public class SimpleServer {
 								if(extension.equals("*")){
 									extension = requiredExtension.substring(0,requiredExtension.indexOf("/"));
 									if(extension.equals("text") && checkAvailability(fileRequested+".txt")){
+										System.out.println("Ext is TXT");
 										realExtension = "txt";
 									}else if(extension.equals("image") && (checkAvailability(fileRequested+".png"))){
 										realExtension = "png";
@@ -637,6 +691,7 @@ public class SimpleServer {
 						fileRequested = fileRequested +"."+realExtension;
 
 						isFileAvailable = checkAvailability(fileRequested);
+						System.out.println("IS AVAILABLE :"+isFileAvailable);
 					}
 
 					else if(headerMap.containsKey("Accept-Encoding") && !fileRequested.endsWith(".Z")){
@@ -675,10 +730,44 @@ public class SimpleServer {
 						fileRequested = fileRequested +"."+realExtension;
 
 						isFileAvailable = checkAvailability(fileRequested);
+					}else if(headerMap.containsKey("Accept-Charset") && headerMap.containsKey("Accept-Language")){
+
+						HashMap<String,Float> charSetMap = new HashMap<String,Float>();
+						acceptHeaderCharSet = headerMap.get("Accept-Charset").split(",");	
+
+						for(String header: acceptHeaderCharSet){
+							setString = header.split(";")[0].trim(); 
+							valueStr = header.split(";")[1].trim();
+							currentValue = Float.valueOf(valueStr.substring(valueStr.indexOf("=")+1));
+							charSetMap.put(setString, currentValue);
+						}
+						System.out.println("MAP CONTENTS : "+charSetMap);
+						higherValue = charSetMap.get("iso-2022-jp");
+						Iterator itr = charSetMap.entrySet().iterator();
+						while (itr.hasNext()) {
+							Map.Entry pair = (Map.Entry)itr.next();
+							if(((String)pair.getKey()).equals(reqSet)){
+								System.out.println("VALUE TEST : "+(String)pair.getKey());
+								continue;
+							}else{
+								float testValue = (Float)pair.getValue();
+								System.out.println("VALUE : "+testValue);
+								if(testValue > higherValue){
+									System.out.println("SETS 406");
+									send406 = true;
+								}
+							}
+
+						}
+						//						System.out.println("Accept Header fileRequested :"+fileRequested+"."+realExtension);
+						//						fileRequested = fileRequested +"."+realExtension;
+						//
+						//						isFileAvailable = checkAvailability(fileRequested);
 					}else{
 						System.out.println("Here in else :"+fileRequested);
 						isFileAvailable = checkAvailability(fileRequested);
 					}
+
 					if(fileRequested.matches("^(.*)/1.[234]/(.*)")){
 						fileRequested = fileRequested.replace("../public/","");
 						regexPath = fileRequested.substring(fileRequested.indexOf("/"),fileRequested.lastIndexOf("/"));
@@ -695,10 +784,21 @@ public class SimpleServer {
 						out.print("Content-Type: "+content+"\r\n");
 						out.print("Location: "+fileRequested+"\r\n");
 						out.print("Connection: close"+"\r\n\r\n");
+					}else if(send406){
+						System.out.println("fileRequested in send406 :"+fileRequested);
+
+						out.print("HTTP/1.1 406 Not Acceptable"+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Transfer-Encoding: chunked"+"\r\n");
+						out.print("Alternatives: "+getAlternatives(fileRequested)+"\r\n");
+						out.print("Connection: close"+"\r\n\r\n");
 					}
 
 					else if(zeroQValue){
 						System.out.println("fileRequested in zeroQValue :"+fileRequested);
+
 						out.print("HTTP/1.1 406 Not Acceptable"+"\r\n");
 						out.print("Date: "+formatted+"\r\n"); 
 						out.print("Server: "+host+"\r\n");
@@ -707,9 +807,23 @@ public class SimpleServer {
 						out.print("Location: "+fileRequested+"\r\n");
 						out.print("Connection: close"+"\r\n\r\n");
 					}else if(acceptHeader){
-						
-						System.out.println("Here in accept header");
-						if(fileRequested.endsWith("fairlane")){
+
+						System.out.println("Here in accept header : "+fileRequested);
+						if(fileRequested.endsWith(".txt")){
+							File fileForLength = new File(fileRequested);
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n");	
+
+
+						}
+						else if(fileRequested.endsWith("fairlane")){
 							File fileForLength = new File(fileRequested+".txt");
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
@@ -720,9 +834,23 @@ public class SimpleServer {
 							out.print("Transfer-Encoding: chunked"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
-							
-							
+
+
+						}else if(fileRequested.endsWith("fairlane")){
+							File fileForLength = new File(fileRequested+".txt");
+							newfileLength = fileForLength.length();
+							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n");	
+
+
 						}else{
+							System.out.println("Here ... :"+fileRequested);
 							File fileForLength = new File(fileRequested+".en");
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
@@ -733,7 +861,7 @@ public class SimpleServer {
 							out.print("Transfer-Encoding: chunked"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
-							
+
 						}
 					}
 					else if(if_mod_flag && isFileAvailable){
@@ -1236,9 +1364,12 @@ public class SimpleServer {
 	}
 
 	private static String getContentType(String fileRequested,String method) {
-		System.out.println("getContentType :"+fileRequested);
+		System.out.println("getContentType method :"+fileRequested);
 		if(method.equals("TRACE")){
 			return "message/http";
+		}else if(fileRequested.contains("koi8-r")){
+			System.out.println("Im here");
+			return "text/html;" + " charset=koi8-r";
 		}
 		else if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html") || fileRequested.contains(".html.") || fileRequested.contains(".html"))
 			return "text/html";
@@ -1297,24 +1428,53 @@ public class SimpleServer {
 
 	public static String getContentLanguage(String fileText){
 		if (fileRequested.endsWith(".en")){
-			return "English";
+			return "en";
 		}else if(fileRequested.endsWith(".es")){
 			return "es";
 		}else if( fileRequested.endsWith(".de")){
-			return "German";
+			return "de";
 		}else if( fileRequested.contains(".ja.")){
-			return "Japanese";
+			return "ja";
 		}else if( fileRequested.contains(".ko.")){
-			return "Korean";
+			return "ko";
 		}else if( fileRequested.contains(".ru.")){
-			return "Russian";
+			return "ru";
 		}else if( fileRequested.contains(".ru.")){
-			return "Russian";
+			return "ru";
 		}else{
 			return "English";
 		}
 
 	}
+
+	public static String getAlternatives(String fileName){
+		String alternativeStr = "";
+		String contentType = getContentType(fileRequested, "HEAD");
+
+		String fileInLoop = "", allFiles = "";
+		String dirName = fileName.substring(0, fileName.lastIndexOf("/")); 
+		String file = fileName.substring(fileName.lastIndexOf("/")+1);
+		String language = file.substring(file.lastIndexOf(".")+1);
+		File dir = new File(dirName);
+		System.out.println("Dir :"+dir.getName()+" :LAN :"+language);
+		File[] files = dir.listFiles();
+		for(File filename : files){
+			System.out.println(filename.length());
+			fileInLoop = filename.getName();
+			if(fileInLoop.contains("."+language+".")){
+				System.out.println(fileInLoop);
+
+				alternativeStr += "{" + "\"" + fileInLoop+ "\"" + " ";
+				alternativeStr += "1" + " {type " + getContentType(fileInLoop, "HEAD") + "}" ; 
+				alternativeStr += " {charset " + reqSet +"}"  ; 
+				alternativeStr += " {language " + language +"}"  ; 
+				alternativeStr += " {length " + filename.length() +"}"  ;
+			}
+		}
+
+		return alternativeStr;
+	}
+
 
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
 		System.out.println("URL Encoded ---"+fileDir);
