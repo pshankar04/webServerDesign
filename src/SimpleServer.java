@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
@@ -16,8 +17,10 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -27,6 +30,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 import javax.xml.bind.DatatypeConverter;
+
 
 
 public class SimpleServer {
@@ -107,6 +111,8 @@ public class SimpleServer {
 				boolean acceptCharset = false;
 				boolean send406 = false;
 				boolean needsAuthentication = false;
+				boolean badRequest = false;
+				boolean rangeExceeded = false;
 				if_mod_flag = false;
 				if_modified_since = "";
 				if_match = "";
@@ -126,7 +132,11 @@ public class SimpleServer {
 							headerMap.put("httpVersion",requestHeader[2]);
 
 						}else if(line.contains(":") && count > 0) {
-							headerMap.put(line.split(": ")[0],line.split(": ")[1]);	
+							if(!headerMap.containsKey(line.split(": ")[0])){
+								headerMap.put(line.split(": ")[0],line.split(": ")[1]);
+							}else{
+								badRequest = true;
+							}
 						}
 
 						else {
@@ -240,7 +250,7 @@ public class SimpleServer {
 					acceptHeader = true;
 					acceptCharset = true;
 				}
-				else if(fileRequested.contains("protected")){
+				else if(fileRequested.contains("protected") || fileRequested.contains("limited")){
 					needsAuthentication = true;
 				}
 				else if (!fileRequested.endsWith("/") && !fileRequested.contains(".html") && !fileRequested.contains(".jpeg") 
@@ -280,16 +290,13 @@ public class SimpleServer {
 					System.out.println("file requested GET: "+fileRequested);
 					System.out.println("needsRedirection :"+needsRedirection);
 
-					if(malformedHeader || missingHost){
+					if(malformedHeader || missingHost || badRequest){
 						out.print("HTTP/1.1 400 Bad Request"+"\r\n");  									 
 						out.print("Date: "+formatted+"\r\n"); 
 						out.print("Server: "+host+"\r\n");
-						if(keepAlive){
-							out.print("Connection: keep-alive"+"\r\n"); 
-						}else{
-							out.print("Connection: close"+"\r\n");  
-						}
-						out.print("Content-Type: "+content+"\r\n");
+						out.print("Transfer-Encoding: chunked"+"\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
+						out.print("Connection: close"+"\r\n");  
 						out.print("\r\n\r\n");						
 					}
 					else if(if_match_flag){
@@ -301,7 +308,90 @@ public class SimpleServer {
 						System.out.println("if_match : "+if_match);
 						System.out.println("Match Test : "+etag.equals(if_match));
 
-						if(!(etag).equals(if_match)){
+						if(!etag.equals(if_match) && fileRequested.contains("/a4-test/limited2")){
+							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\""+""+"\""+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Connection: close"+"\r\n\r\n"); 
+							out.print(getChunkedBytes("../public/a3-test/412.html"));
+							out.print("\r\n\r\n");
+
+
+						}
+						else if(!(etag).equals(if_match)){
+							File fileNow = new File(fileRequested);
+							long newfileLength = fileNow.length();
+							out.print("HTTP/1.1 412 Precondition Failed"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Content-Type: text/html"+"\r\n");
+							out.print("Connection: close"+"\r\n\r\n"); 
+							out.print(getChunkedBytes("../public/a3-test/412.html"));
+							out.print("\r\n\r\n");
+
+
+						}else if(etag.equals(if_match)){
+							if(!fileRequested.contains("../public")){
+								fileRequested = "../public" + fileRequested;
+							}
+							File fileForLength = new File(fileRequested);
+							long newfileLength = fileForLength.length();
+							System.out.println("newfileLength : "+newfileLength);
+							String str = "HTTP/1.1 200 OK\r\n"+
+									"Date: "+formatted+"\r\n" +
+									"Server: "+host+"\r\n"+
+									"Content-Type: "+content+"\r\n"+
+									"Last-Modified: "+getLastModified(fileRequested)+"\r\n"+
+									"Content-Language: "+getContentLanguage(fileRequested)+"\r\n"+
+									"Content-Length: "+newfileLength+"\r\n"+											 
+									"Connection: close"+"\r\n\r\n";
+							dataOut.write(str.getBytes());
+
+							if(fileRequested.endsWith("ru.koi8-r")){
+								File f1 = new File(fileRequested);
+								InputStream inp = new FileInputStream(f1);
+								byte[] buffer=new byte[1024];
+								int readData;
+								while((readData = inp.read(buffer))!=-1){
+									dataOut.write(buffer,0,readData);
+								}
+								dataOut.flush();
+							}else{
+								FileReader fr = new FileReader(fileRequested);
+								BufferedReader br = new BufferedReader(fr);
+								String fileLine;
+								while ((fileLine = br.readLine()) != null) {
+									System.out.println(fileLine+"\n");
+									dataOut.write((fileLine).getBytes());
+								}
+							}
+						}
+					}
+					else if(if_match_flag){
+						System.out.println("fileRequested in 412 :"+fileRequested);
+						String etag = generateETag(fileRequested);
+
+						if_match = if_match.replace("\"", "");
+						System.out.println("Etag :"+etag);
+						System.out.println("if_match : "+if_match);
+						System.out.println("Match Test : "+etag.equals(if_match));
+
+						if(!etag.equals(if_match) && fileRequested.contains("/a4-test/limited2")){
+							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\""+""+"\""+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Connection: close"+"\r\n\r\n"); 
+							out.print(getChunkedBytes("../public/a3-test/412.html"));
+							out.print("\r\n\r\n");
+
+
+						}else if(!(etag).equals(if_match)){
 							File fileNow = new File(fileRequested);
 							long newfileLength = fileNow.length();
 							out.print("HTTP/1.1 412 Precondition Failed"+"\r\n");  									 
@@ -442,16 +532,32 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");
-							
-							out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
+							if(fileRequested.endsWith("protected")){
+								out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
+							}else{
+								out.print("<html><body>this file is protected too!</body></html>"+"\r\n\r\n");
+							}
 						}else{
-							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
-							out.print("Date: " +formatted+"\r\n"); 
-							out.print("Server: "+host+"\r\n");
-							out.print("WWW-Authenticate: Basic realm=\"Fried Twice\""+"\r\n");
-							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
-							out.print("Connection: close"+"\r\n"); 
-							out.print("\r\n\r\n");	
+							String nonce = generateNonce();
+							if(fileRequested.contains("a4-test/limited2/foo/")){
+								out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+								out.print("Date: " +formatted+"\r\n"); 
+								out.print("Server: "+host+"\r\n");
+								out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\""+nonce+"\""+"\r\n");
+								out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+								out.print("Connection: close"+"\r\n"); 
+								out.print("\r\n\r\n");	
+							}else{
+
+
+								out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+								out.print("Date: " +formatted+"\r\n"); 
+								out.print("Server: "+host+"\r\n");
+								out.print("WWW-Authenticate: Basic realm=\"Fried Twice\""+"\r\n");
+								out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+								out.print("Connection: close"+"\r\n"); 
+								out.print("\r\n\r\n");	
+							}
 						}
 					}
 					else if(acceptHeader){
@@ -686,6 +792,19 @@ public class SimpleServer {
 					String requiredExtension = "", extension = "", valueStr = "",realExtension = "";
 					float higherValue = 0.0f;
 					float currentValue = 0.0f;
+					File fileForLength = new File(fileRequested);
+					newfileLength = fileForLength.length();
+					if(headerMap.containsKey("Range")){
+						String rangeBytes = (headerMap.get("Range").split("=")[1]).split("-")[1];
+						System.out.println("Ranges :"+rangeExceeded);
+						if(Integer.parseInt(rangeBytes) > newfileLength){
+							System.out.println("HERE :"+rangeExceeded);
+							rangeExceeded = true;
+						}
+					}
+
+
+
 					if(headerMap.containsKey("Accept") && !fileRequested.endsWith(".Z")){
 						System.out.println("Accept in HEAD"+fileRequested);
 						acceptHeaders = headerMap.get("Accept").split(",");
@@ -794,7 +913,9 @@ public class SimpleServer {
 						//						fileRequested = fileRequested +"."+realExtension;
 						//
 						//						isFileAvailable = checkAvailability(fileRequested);
-					}else{
+					}
+
+					else{
 						System.out.println("Here in else :"+fileRequested);
 						isFileAvailable = checkAvailability(fileRequested);
 					}
@@ -828,10 +949,21 @@ public class SimpleServer {
 						out.print("Vary: negotiate,accept-encoding"+"\r\n");
 						out.print("Connection: close"+"\r\n\r\n");
 					}
-
+					else if(rangeExceeded){
+						fileForLength = new File(fileRequested);
+						newfileLength = fileForLength.length();
+						out.print("HTTP/1.1 416 Range Not Satisfiable"+"\r\n");
+						out.print("Date: "+formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Content-Length: "+newfileLength+"\r\n");
+						out.print("Last-Modified: "+getLastModified(fileRequested)+"\r\n");
+						out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");
+						out.print("Location: "+fileRequested+"\r\n");
+						out.print("Connection: close"+"\r\n\r\n");
+					}
 					else if(zeroQValue){
 						System.out.println("fileRequested in zeroQValue :"+fileRequested);
-
 						out.print("HTTP/1.1 406 Not Acceptable"+"\r\n");
 						out.print("Date: "+formatted+"\r\n"); 
 						out.print("Server: "+host+"\r\n");
@@ -843,7 +975,7 @@ public class SimpleServer {
 
 						System.out.println("Here in accept header : "+fileRequested);
 						if(fileRequested.endsWith(".txt")){
-							File fileForLength = new File(fileRequested);
+							fileForLength = new File(fileRequested);
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
@@ -857,7 +989,7 @@ public class SimpleServer {
 
 						}
 						else if(fileRequested.endsWith("fairlane")){
-							File fileForLength = new File(fileRequested+".txt");
+							fileForLength = new File(fileRequested+".txt");
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
@@ -872,7 +1004,7 @@ public class SimpleServer {
 
 
 						}else if(fileRequested.endsWith("fairlane")){
-							File fileForLength = new File(fileRequested+".txt");
+							fileForLength = new File(fileRequested+".txt");
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
@@ -888,7 +1020,7 @@ public class SimpleServer {
 
 						}else{
 							System.out.println("Here ... :"+fileRequested);
-							File fileForLength = new File(fileRequested+".en");
+							fileForLength = new File(fileRequested+".en");
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
@@ -949,7 +1081,7 @@ public class SimpleServer {
 							}else{
 								String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
 								System.out.println("filePath : "+filePath);
-								File fileForLength = new File(filePath);
+								fileForLength = new File(filePath);
 								newfileLength = fileForLength.length();
 
 								out.print("HTTP/1.1 200 OK"+"\r\n");
@@ -966,7 +1098,7 @@ public class SimpleServer {
 						}catch(Exception e){
 							System.out.println("File 11 :"+fileRequested);
 							String filePath = new File(fileRequested).getAbsolutePath().replace("src/../","");
-							File fileForLength = new File(filePath);
+							fileForLength = new File(filePath);
 							newfileLength = fileForLength.length();
 							out.print("HTTP/1.1 200 OK"+"\r\n");
 							out.print("Date: "+formatted+"\r\n"); 
@@ -990,18 +1122,11 @@ public class SimpleServer {
 						System.out.println("filePath : "+filePath);
 						File f2 = new File(fileRequested);
 						if(f2.exists() && !f2.isDirectory()) { 
-							File fileForLength = new File(filePath);
+							fileForLength = new File(filePath);
 							newfileLength = fileForLength.length();
 						}else if(f2.isDirectory()){
 							newfileLength = 0;
 						}
-
-						//						if(keepAlive){
-						//							keepAliveStr = "Connection: keep-alive"; 
-						//						}else{
-						//							keepAliveStr = "Connection: close";  
-						//						}
-
 						System.out.println("is Alive Now : "+client.getKeepAlive());
 
 						out.print("HTTP/1.1 200 OK"+"\r\n");
@@ -1026,7 +1151,7 @@ public class SimpleServer {
 
 					}else if(noAcceptHeader){
 						System.out.println("HEAD noAcceptHeader");
-						File fileForLength = new File(fileRequested+".html");
+						fileForLength = new File(fileRequested+".html");
 						newfileLength = fileForLength.length();
 						out.print("HTTP/1.1 300 Multiple Choice"+"\r\n");  									 
 						out.print("Date: " +formatted+"\r\n"); 
@@ -1037,6 +1162,50 @@ public class SimpleServer {
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n");	
 					}
+					else if(headerMap.containsKey("Authorization") && confirmAuthorization(fileRequested,headerMap.get("Authorization"))){
+						System.out.println("HEAD AUTHORIZATION");
+						out.print("HTTP/1.1 200 OK"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+						out.print("Content-Length: "+newfileLength+"\r\n");
+						out.print("Connection: close"+"\r\n"); 
+						out.print("\r\n\r\n");
+						if(fileRequested.endsWith("protected")){
+							out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
+						}else{
+							out.print("<html><body>this file is protected too!</body></html>"+"\r\n\r\n");
+						}
+					}else if(headerMap.containsKey("Authorization")){
+						String nonce = generateNonce();
+						if(fileRequested.contains("a4-test/limited2/foo/")){
+							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\"+nonce+"+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n\r\n");	
+						}else{
+							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("WWW-Authenticate: Basic realm=\"Fried Twice\""+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n\r\n");	
+						}
+					}else if(fileRequested.contains("a4-test/limited2")){
+						String nonce = generateNonce();
+						out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\"+nonce+"+"\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+						out.print("Connection: close"+"\r\n"); 
+						out.print("\r\n\r\n");	
+					}
+
 
 					else{
 						out.print("HTTP/1.1 400 Not Found"+"\r\n");  
@@ -1122,17 +1291,30 @@ public class SimpleServer {
 					}
 					allowedMethods = allowedMethods.substring(0,allowedMethods.length()-1);
 
-					out.print("HTTP/1.1 200 OK\r\n");
-					out.print("Date: " +formatted+"\r\n"); 
-					out.print("Server: "+host+"\r\n");					 
-					out.print("Content-Length:"+0+"\r\n");	
-					out.print("Allow: "+allowedMethods+"\r\n");	
-					if(keepAlive){
-						keepAliveStr = "Connection: keep-alive"+"\r\n"; 
+					if(fileRequested.contains("a4-test/limited2/")){
+						System.out.println("HERE for NONCE");
+						String nonce = generateNonce();
+						out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");
+						out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce="+nonce);
+						out.println("\r\n");
+						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+						out.print("Connection: close"+"\r\n"); 
+						out.print("\r\n\r\n");		
 					}else{
-						keepAliveStr = "Connection: close"+"\r\n";  
+						out.print("HTTP/1.1 200 OK\r\n");
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");					 
+						out.print("Content-Length:"+0+"\r\n");	
+						out.print("Allow: "+allowedMethods+"\r\n");	
+						if(keepAlive){
+							keepAliveStr = "Connection: keep-alive"+"\r\n"; 
+						}else{
+							keepAliveStr = "Connection: close"+"\r\n";  
+						}
+						out.print("Content-Type: "+content+"\r\n\r\n");
 					}
-					out.print("Content-Type: "+content+"\r\n\r\n");
 				}
 
 				//				if(!client.getKeepAlive() && !headerMap.containsKey("Range")){
@@ -1168,6 +1350,12 @@ public class SimpleServer {
 
 	}
 
+	private static String generateNonce() throws NoSuchAlgorithmException, NoSuchProviderException, UnsupportedEncodingException
+	{
+		String dateTimeString = Long.toString(new Date().getTime());
+		byte[] nonceByte = dateTimeString.getBytes();
+		return Base64.getEncoder().encodeToString(nonceByte);
+	}
 
 	public static String generateETag(String file) throws NoSuchAlgorithmException, IOException{
 		System.out.println("In ETag : "+file);
@@ -1394,27 +1582,31 @@ public class SimpleServer {
 		System.out.println("Dir :"+dir.getPath());
 		//dir = dir.getAbsoluteFile();
 		System.out.println("Dir :"+dir.getName());
-		try{
-			File[] files = dir.listFiles();
-			System.out.println("LEN : "+files.length);
-			for (File file : files) {
-				System.out.println("File :"+file.getName());
-				directoryStructure += file.getName() +"\n";
-				if (file.isDirectory()) {		
-					System.out.println("RIght here for dir :");
-					displayDirectoryContents(file,filename);
-				} else {
-					if(file.getName().equals(filename)){
-						System.out.println("RIght here for file :");
-						isFileAvailable = true;
-						System.out.println("Right here"+isFileAvailable);
-						break;
+		if(dir.isDirectory()){
+			try{
+				File[] files = dir.listFiles();
+				System.out.println("LEN : "+files.length);
+				for (File file : files) {
+					System.out.println("File :"+file.getName());
+					directoryStructure += file.getName() +"\n";
+					if (file.isDirectory()) {		
+						System.out.println("RIght here for dir :");
+						displayDirectoryContents(file,filename);
+					} else {
+						if(file.getName().equals(filename)){
+							System.out.println("RIght here for file :");
+							isFileAvailable = true;
+							System.out.println("Right here"+isFileAvailable);
+							break;
+						}
 					}
 				}
+			}catch(NullPointerException ne){
+				System.out.println("RIght here for exception :");
+				ne.printStackTrace();
+				isFileAvailable = false;
 			}
-		}catch(NullPointerException ne){
-			System.out.println("RIght here for exception :");
-			ne.printStackTrace();
+		}else{
 			isFileAvailable = false;
 		}
 
@@ -1428,7 +1620,7 @@ public class SimpleServer {
 		}else if(fileRequested.contains("koi8-r")){
 			System.out.println("Im here");
 			return "text/html;" + " charset=koi8-r";
-		}else if(fileRequested.endsWith("protected")){
+		}else if(fileRequested.endsWith("protected") || fileRequested.endsWith("protected2")){
 			return "application/octet-stream";
 		}
 		else if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html") || fileRequested.contains(".html.") || fileRequested.contains(".html"))
@@ -1541,13 +1733,13 @@ public class SimpleServer {
 		BufferedReader brRead = new BufferedReader(new InputStreamReader(fstream));
 		boolean isConfirmed = false;
 		String strLine = "", pass ="" , str ="";
-		
+
 		while ((strLine = brRead.readLine()) != null)   {
 			System.out.println("File in confirmAuthorization 3 :"+file);
 			file = file.substring(file.lastIndexOf("/")+1);
 			str = strLine.split(" ")[0];
 			System.out.println("File in confirmAuthorization 2 :"+strLine+" "+file);
-			
+
 			pass = strLine.split(" ")[1];
 			System.out.println("File in confirmAuthorization 4 :"+file);
 			System.out.println("File in confirmAuthorization 4 :"+strLine+" "+pass);
@@ -1559,7 +1751,7 @@ public class SimpleServer {
 		brRead.close();
 		return isConfirmed;
 	}
-	
+
 	public static String getVaryString(){
 		if(headerMap.containsKey("Accept")){
 			return "Vary: negotiate,accept";
