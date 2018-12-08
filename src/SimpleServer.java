@@ -106,6 +106,7 @@ public class SimpleServer {
 				boolean zeroQValue = false;
 				boolean acceptCharset = false;
 				boolean send406 = false;
+				boolean needsAuthentication = false;
 				if_mod_flag = false;
 				if_modified_since = "";
 				if_match = "";
@@ -238,6 +239,9 @@ public class SimpleServer {
 					System.out.println("AcceptHeader language"+headerMap.get("Accept-Language"));
 					acceptHeader = true;
 					acceptCharset = true;
+				}
+				else if(fileRequested.contains("protected")){
+					needsAuthentication = true;
 				}
 				else if (!fileRequested.endsWith("/") && !fileRequested.contains(".html") && !fileRequested.contains(".jpeg") 
 						&& !fileRequested.contains(".JPEG") && !fileRequested.contains(".txt") && !fileRequested.contains("directory3isempty")
@@ -423,7 +427,34 @@ public class SimpleServer {
 						out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n\r\n");	
-					}else if(acceptHeader){
+
+					}else if(needsAuthentication){
+						System.out.println(" Authorization file ;"+fileRequested);
+						fileRequested = fileRequested.replace("http://localhost:8090/", "../public/");
+						File fileForLength = new File(fileRequested);
+						long newfileLength = fileForLength.length();
+						System.out.println(" Authorization Length ;"+newfileLength);
+						if(headerMap.containsKey("Authorization") && confirmAuthorization(fileRequested,headerMap.get("Authorization"))){
+							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Content-Length: "+newfileLength+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n\r\n");
+							
+							out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
+						}else{
+							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
+							out.print("Date: " +formatted+"\r\n"); 
+							out.print("Server: "+host+"\r\n");
+							out.print("WWW-Authenticate: Basic realm=\"Fried Twice\""+"\r\n");
+							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Connection: close"+"\r\n"); 
+							out.print("\r\n\r\n");	
+						}
+					}
+					else if(acceptHeader){
 						long newfileLength = 0l;
 						System.out.println("Here in accept header");
 						if(fileRequested.endsWith("fairlane")){
@@ -434,7 +465,7 @@ public class SimpleServer {
 							out.print("Server: "+host+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
-							out.println("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
 							out.print(getChunkedBytes("../public/a3-test/fairlane.html"));
@@ -447,7 +478,7 @@ public class SimpleServer {
 							out.print("Server: "+host+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested+".html","GET")+"\r\n");
-							out.println("Transfer-Encoding: chunked"+"\r\n");
+							out.print("Transfer-Encoding: chunked"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
 							out.print(getChunkedBytes("../public/a3-test/index.html.en"));
@@ -600,7 +631,7 @@ public class SimpleServer {
 									BufferedReader br = new BufferedReader(fr);
 									String fileLine;
 									while ((fileLine = br.readLine()) != null) {
-										dataOut.write((fileLine).getBytes());
+										dataOut.write((fileLine+"\r\n").getBytes());
 									}	
 								}
 
@@ -793,6 +824,8 @@ public class SimpleServer {
 						out.print("Content-Type: "+content+"\r\n");
 						out.print("Transfer-Encoding: chunked"+"\r\n");
 						out.print("Alternatives: "+getAlternatives(fileRequested)+"\r\n");
+						out.print("TCN: list"+"\r\n");
+						out.print("Vary: negotiate,accept-encoding"+"\r\n");
 						out.print("Connection: close"+"\r\n\r\n");
 					}
 
@@ -832,6 +865,8 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
 							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print(getVaryString()+"\r\n");
+							out.print("TCN: list");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
 
@@ -845,6 +880,8 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
 							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print(getVaryString()+"\r\n");
+							out.print("TCN: list"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
 
@@ -859,6 +896,8 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"HEAD")+"\r\n");
 							out.print("Transfer-Encoding: chunked"+"\r\n");
+							out.print(getVaryString()+"\r\n");
+							out.print("TCN: list"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");	
 
@@ -878,7 +917,7 @@ public class SimpleServer {
 							System.out.println("modDate in HEAD :"+modDate);
 
 							if(modDate.compareTo(currDate) <= 0 && fileRequested.contains("fairlane.gif")) {
-								System.out.println("modDate inside :");
+								System.out.println("modDate inside 304:");
 								out.print("HTTP/1.1 304 Not Modified"+"\r\n");  									 
 								out.print("Date: " +formatted+"\r\n"); 
 								out.print("Server: "+host+"\r\n");
@@ -973,6 +1012,10 @@ public class SimpleServer {
 						out.print("Last-Modified: "+getLastModified(filePath)+"\r\n");	
 						out.print("Content-Location: "+fileRequested+"\r\n");
 						out.print("Content-Length: "+newfileLength+"\r\n");	
+						if(headerMap.containsKey("Accept")){
+							out.print(getVaryString()+"\r\n");
+							out.print("TCN: choice"+"\r\n");
+						}
 						if(fileRequested.contains(".Z") || fileRequested.contains(".gz")){
 							out.print("Content-Encoding: "+getContentEncoding(fileRequested)+"\r\n");	
 						}
@@ -1385,6 +1428,8 @@ public class SimpleServer {
 		}else if(fileRequested.contains("koi8-r")){
 			System.out.println("Im here");
 			return "text/html;" + " charset=koi8-r";
+		}else if(fileRequested.endsWith("protected")){
+			return "application/octet-stream";
 		}
 		else if (fileRequested.endsWith(".htm")  ||  fileRequested.endsWith(".html") || fileRequested.contains(".html.") || fileRequested.contains(".html"))
 			return "text/html";
@@ -1490,7 +1535,42 @@ public class SimpleServer {
 		return alternativeStr;
 	}
 
-
+	public static boolean confirmAuthorization(String file,String password) throws IOException{
+		System.out.println("File in confirmAuthorization 1 :"+file);
+		FileInputStream fstream = new FileInputStream("../public/Basic.txt");
+		BufferedReader brRead = new BufferedReader(new InputStreamReader(fstream));
+		boolean isConfirmed = false;
+		String strLine = "", pass ="" , str ="";
+		
+		while ((strLine = brRead.readLine()) != null)   {
+			System.out.println("File in confirmAuthorization 3 :"+file);
+			file = file.substring(file.lastIndexOf("/")+1);
+			str = strLine.split(" ")[0];
+			System.out.println("File in confirmAuthorization 2 :"+strLine+" "+file);
+			
+			pass = strLine.split(" ")[1];
+			System.out.println("File in confirmAuthorization 4 :"+file);
+			System.out.println("File in confirmAuthorization 4 :"+strLine+" "+pass);
+			if(file.equals(str) && pass.equals(password.split(" ")[1])){
+				isConfirmed = true;
+				break;
+			}
+		}
+		brRead.close();
+		return isConfirmed;
+	}
+	
+	public static String getVaryString(){
+		if(headerMap.containsKey("Accept")){
+			return "Vary: negotiate,accept";
+		}else if(headerMap.containsKey("Accept-Encoding")){
+			return "Vary: negotiate,accept-encoding";
+		}else if(headerMap.containsKey("Accept-Language")){
+			return "Vary: negotiate,accept-charset,accept-language";
+		}else{
+			return "Vary: negotiate,accept";
+		}
+	}
 	public static boolean verifyCaseSensitiveFiles(String fileDir){
 		System.out.println("URL Encoded ---"+fileDir);
 		fileDir = "../public" + fileDir;
