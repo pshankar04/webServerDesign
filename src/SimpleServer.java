@@ -9,10 +9,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.math.BigInteger;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
@@ -30,6 +33,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 import javax.xml.bind.DatatypeConverter;
+import java.security.*;
 
 
 
@@ -60,6 +64,8 @@ public class SimpleServer {
 	public static LinkedHashMap<String,String> headerMap;
 	public static int lengthForPartialContent = 0;
 	public static int totalLengthForPartialContent = 0;
+	public static String rspAuth="";
+	public static String cnonceStringValue = "";
 
 
 	public static void main(String args[]) throws SocketTimeoutException{
@@ -525,9 +531,13 @@ public class SimpleServer {
 						long newfileLength = fileForLength.length();
 						System.out.println(" Authorization Length ;"+newfileLength);
 						if(headerMap.containsKey("Authorization") && confirmAuthorization(fileRequested,headerMap.get("Authorization"))){
+							rspAuth = "\""+rspAuth+"\"";
+							cnonceStringValue = "\""+cnonceStringValue+"\"";
 							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
 							out.print("Server: "+host+"\r\n");
+							out.print("Authentication-Info: rspauth="+rspAuth+",cnonce="+cnonceStringValue+", nc=00000001, qop=auth"+"\r\n");
+
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
@@ -1350,18 +1360,24 @@ public class SimpleServer {
 
 	}
 
-	private static String generateNonce() throws NoSuchAlgorithmException, NoSuchProviderException, UnsupportedEncodingException
+	private static String generateNonce() throws NoSuchAlgorithmException, NoSuchProviderException, IOException
 	{
-		String dateTimeString = Long.toString(new Date().getTime());
-		byte[] nonceByte = dateTimeString.getBytes();
+		String nonceString = Long.toString(new Date().getTime()) +":"+generateETag(fileRequested)+":"+"Puneeth";
+		MessageDigest md5 = MessageDigest.getInstance("MD5");
+		md5.update(StandardCharsets.UTF_8.encode(nonceString));
+		String md5Hash = String.format("%032x", new BigInteger(1, md5.digest()));
+		md5Hash = Long.toString(new Date().getTime()) +" "+md5Hash;
+		byte[] nonceByte = md5Hash.getBytes();
 		return Base64.getEncoder().encodeToString(nonceByte);
+
 	}
 
 	public static String generateETag(String file) throws NoSuchAlgorithmException, IOException{
 		System.out.println("In ETag : "+file);
-		//		file = file.substring(file.indexOf("//")+2);
-		//		file = file.substring(file.indexOf("/"));
-
+		if(file.contains("//")){
+			file = file.substring(file.indexOf("//")+2);
+			file = file.substring(file.indexOf("/"));
+		}
 		File f = new File(file);
 		if(f.isDirectory()){
 			return "";
@@ -1727,30 +1743,146 @@ public class SimpleServer {
 		return alternativeStr;
 	}
 
-	public static boolean confirmAuthorization(String file,String password) throws IOException{
+	//	public static boolean confirmAuthorization(String file,String password) throws IOException{
+	//		System.out.println("File in confirmAuthorization 1 :"+file);
+	//		FileInputStream fstream = new FileInputStream("../public/Basic.txt");
+	//		BufferedReader brRead = new BufferedReader(new InputStreamReader(fstream));
+	//		boolean isConfirmed = false;
+	//		String strLine = "", pass ="" , str ="";
+	//
+	//		while ((strLine = brRead.readLine()) != null)   {
+	//			System.out.println("File in confirmAuthorization 3 :"+file);
+	//			file = file.substring(file.lastIndexOf("/")+1);
+	//			str = strLine.split(" ")[0];
+	//			System.out.println("File in confirmAuthorization 2 :"+strLine+" "+file);
+	//
+	//			pass = strLine.split(" ")[1];
+	//			System.out.println("File in confirmAuthorization 4 :"+file);
+	//			System.out.println("File in confirmAuthorization 4 :"+strLine+" "+pass);
+	//			if(file.equals(str) && pass.equals(password.split(" ")[1])){
+	//				isConfirmed = true;
+	//				break;
+	//			}
+	//		}
+	//		brRead.close();
+	//		return isConfirmed;
+	//	}
+
+	public static boolean confirmAuthorization(String file,String password) throws IOException, NoSuchAlgorithmException{
+		boolean authConfirmed = false;
 		System.out.println("File in confirmAuthorization 1 :"+file);
-		FileInputStream fstream = new FileInputStream("../public/Basic.txt");
-		BufferedReader brRead = new BufferedReader(new InputStreamReader(fstream));
-		boolean isConfirmed = false;
-		String strLine = "", pass ="" , str ="";
+		String base64Decoded = "" , md5Hash = "", strPassword = "" , strUsername = "";
+		if(password.contains("Basic")){
+			password = password.split(" ")[1];
+			byte[] decodedBytes = Base64.getDecoder().decode(password);
+			base64Decoded = new String(decodedBytes);
+			strPassword = base64Decoded.split(":")[1];
+			strUsername = base64Decoded.split(":")[0];
+			System.out.println("DECODED String "+strUsername+" "+strPassword);
+			byte[] bytesOfMessage = base64Decoded.getBytes("UTF-8");
 
-		while ((strLine = brRead.readLine()) != null)   {
-			System.out.println("File in confirmAuthorization 3 :"+file);
-			file = file.substring(file.lastIndexOf("/")+1);
-			str = strLine.split(" ")[0];
-			System.out.println("File in confirmAuthorization 2 :"+strLine+" "+file);
+			MessageDigest md5 = MessageDigest.getInstance("MD5");
+			md5.update(StandardCharsets.UTF_8.encode(strPassword));
+			md5Hash = String.format("%032x", new BigInteger(1, md5.digest()));
+			System.out.println("Final MD5 DECODED String "+String.format("%032x", new BigInteger(1, md5.digest())));
+			authConfirmed = verifyMD5Password(strUsername,md5Hash,"Basic","","","","","");
 
-			pass = strLine.split(" ")[1];
-			System.out.println("File in confirmAuthorization 4 :"+file);
-			System.out.println("File in confirmAuthorization 4 :"+strLine+" "+pass);
-			if(file.equals(str) && pass.equals(password.split(" ")[1])){
-				isConfirmed = true;
-				break;
-			}
+		}else if(password.contains("Digest")){
+			System.out.println("Here DIGEST");
+			String[] authString = headerMap.get("Authorization").split(",");
+			String responseString = authString[authString.length - 1];
+			responseString = responseString.split("=")[1].replace("\"","");
+			String username = authString[0].split("=")[1].replace("\"", "");
+			String nonceStr = authString[4].split("=")[1].replace("\"","");
+			String cnonceStr = authString[6].split("=")[1].replace("\"","");
+			String uri = authString[2].split("=")[1].replace("\"","");
+			String realm = authString[1].split("=")[1].replace("\"","");
+			String nc = authString[5].split("=")[1].replace("\"","");
+			System.out.println("username   "+username);
+			System.out.println("nonceStr   "+nonceStr);
+			System.out.println("cnonceStr    "+cnonceStr);
+			System.out.println("uri   "+uri);
+			System.out.println("responseString   "+responseString);
+			cnonceStringValue = cnonceStr;
+			authConfirmed = verifyMD5Password(username,responseString,"Digest",nonceStr,cnonceStr,uri,realm,nc);
 		}
-		brRead.close();
+		return authConfirmed;
+
+	}
+
+	public static boolean verifyMD5Password(String username,String md5Password,String method,String nonce,String cnonce,String link,String realm,String ncountVal) throws IOException, NoSuchAlgorithmException{
+		boolean isConfirmed = false;
+		MessageDigest md5 = MessageDigest.getInstance("MD5");
+		String filepath = "";
+		if(method.equals("Basic")){
+			filepath = "../public/a4-test/limited1/WeMustProtectThisHouse!";
+			FileInputStream fstream = new FileInputStream(filepath);
+			BufferedReader brRead = new BufferedReader(new InputStreamReader(fstream));
+			String strLine ="", user = "", pwd = "";
+			while ((strLine = brRead.readLine()) != null){
+				if(strLine.contains(":")){
+					user = strLine.split(":")[0];
+					pwd = strLine.split(":")[1];
+					if(user.equals(username) && pwd.equals(md5Password)){
+						isConfirmed = true;
+						break;
+					}
+				}
+			}
+
+			brRead.close();
+		}else{
+			filepath = "../public/a4-test/limited2/WeMustProtectThisHouse!";
+			FileInputStream fstream = new FileInputStream(filepath);
+			BufferedReader brRead = new BufferedReader(new InputStreamReader(fstream));
+			String strLine ="", user = "", pwd = "",md5Hash = "", methodName = headerMap.get("method"), rsp = "" ,a2= "",reqRealm = "",ncValue="00000001";
+			while ((strLine = brRead.readLine()) != null){
+				if(strLine.contains(":")){
+					user = strLine.split(":")[0];
+					pwd = strLine.split(":")[2];
+					reqRealm = strLine.split(":")[1];
+					
+					//pwd = strLine;
+					
+					if(user.equals(username)){
+						System.out.println("LABEL");
+						System.out.println("user :"+user);
+						System.out.println("pwd :"+pwd);
+						System.out.println("link :"+link);
+						rspAuth = ":"+link;
+						md5.update(StandardCharsets.UTF_8.encode(rspAuth));
+						rspAuth = String.format("%032x", new BigInteger(1, md5.digest()));
+						System.out.println("rspAuth HASH  :"+rspAuth);
+						a2 = methodName +":"+link;
+						pwd = pwd + ":"+nonce+":00000001:"+cnonce+":"+"auth";
+						rsp = pwd + ":"+rspAuth;
+						System.out.println("LINK  :"+link);
+						md5.update(StandardCharsets.UTF_8.encode(a2));
+						md5Hash = String.format("%032x", new BigInteger(1, md5.digest()));
+						System.out.println("Link MD5 HASH :"+md5Hash);
+						pwd = pwd + ":"+md5Hash;
+						System.out.println("LINK PWD :"+pwd);
+						md5.update(StandardCharsets.UTF_8.encode(pwd));
+						md5Hash = String.format("%032x", new BigInteger(1, md5.digest()));
+						md5.update(StandardCharsets.UTF_8.encode(rsp));
+						rspAuth = String.format("%032x", new BigInteger(1, md5.digest()));
+						System.out.println("rspAuth   "+rspAuth);	
+						System.out.println("md5Hash   "+md5Hash);
+						
+						if(md5Hash.equals(md5Password) && reqRealm.equals(realm) && ncValue.equals(ncountVal)){
+							isConfirmed = true;
+							break;
+						}
+					}
+				}
+			}
+			brRead.close();
+			return isConfirmed;
+		}
+
 		return isConfirmed;
 	}
+
 
 	public static String getVaryString(){
 		if(headerMap.containsKey("Accept")){
