@@ -532,6 +532,7 @@ public class SimpleServer {
 						System.out.println(" Authorization Length ;"+newfileLength);
 						if(headerMap.containsKey("Authorization") && confirmAuthorization(fileRequested,headerMap.get("Authorization"))){
 							System.out.println("HERE for AUTH");
+							System.out.println(" Authorization file  test;"+fileRequested);
 							rspAuth = "\""+rspAuth+"\"";
 							cnonceStringValue = "\""+cnonceStringValue+"\"";
 							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
@@ -544,13 +545,13 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");
-							System.out.println(" Authorization file  test;"+fileRequested);
-							if(fileRequested.contains("protected2")){
+							
+							//if(fileRequested.contains("protected2")){
 								out.print("this file is protected too!"+"\r\n\r\n");
 								
-							}else if(fileRequested.contains("protected")){
-								out.print("this file is protected"+"\r\n\r\n");
-							}
+//							}else if(fileRequested.contains("protected")){
+//								out.print("this file is protected"+"\r\n\r\n");
+//							}
 						}else{
 							String nonce = generateNonce();
 							if(fileRequested.contains("a4-test/limited2/foo/")){
