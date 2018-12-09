@@ -536,8 +536,9 @@ public class SimpleServer {
 							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
 							out.print("Server: "+host+"\r\n");
-							out.print("Authentication-Info: rspauth="+rspAuth+",cnonce="+cnonceStringValue+", nc=00000001, qop=auth"+"\r\n");
-
+							if(headerMap.get("Authorization").contains("Digest")){
+								out.print("Authentication-Info: rspauth="+rspAuth+",cnonce="+cnonceStringValue+", nc=00000001, qop=auth"+"\r\n");
+							}
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
@@ -1841,9 +1842,9 @@ public class SimpleServer {
 					user = strLine.split(":")[0];
 					pwd = strLine.split(":")[2];
 					reqRealm = strLine.split(":")[1];
-					
+
 					//pwd = strLine;
-					
+
 					if(user.equals(username)){
 						System.out.println("LABEL");
 						System.out.println("user :"+user);
@@ -1868,7 +1869,7 @@ public class SimpleServer {
 						rspAuth = String.format("%032x", new BigInteger(1, md5.digest()));
 						System.out.println("rspAuth   "+rspAuth);	
 						System.out.println("md5Hash   "+md5Hash);
-						
+
 						if(md5Hash.equals(md5Password) && reqRealm.equals(realm) && ncValue.equals(ncountVal)){
 							isConfirmed = true;
 							break;
