@@ -545,10 +545,11 @@ public class SimpleServer {
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");
 							System.out.println(" Authorization file  test;"+fileRequested);
-							if(fileRequested.endsWith("protected")){
-								out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
-							}else{
+							if(fileRequested.contains("protected2")){
 								out.print("<html><body>this file is protected too!</body></html>"+"\r\n\r\n");
+								
+							}else if(fileRequested.contains("protected")){
+								out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
 							}
 						}else{
 							String nonce = generateNonce();
