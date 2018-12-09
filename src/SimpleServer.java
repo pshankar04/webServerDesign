@@ -546,7 +546,7 @@ public class SimpleServer {
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");
 							
-							System.out.println("fileRequested in Protected :"+fileRequested);
+							
 							FileReader fr = new FileReader("../public/a4-test/limited1/protected");
 							BufferedReader br = new BufferedReader(fr);
 							String fileLine;
