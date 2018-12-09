@@ -527,6 +527,7 @@ public class SimpleServer {
 					}else if(needsAuthentication){
 						System.out.println(" Authorization file ;"+fileRequested);
 						fileRequested = fileRequested.replace("http://localhost:8090/", "../public/");
+							fileRequested = fileRequested.replace("http://cs531-pbikkasa/", "../public/");
 						File fileForLength = new File(fileRequested);
 						long newfileLength = fileForLength.length();
 						System.out.println(" Authorization Length ;"+newfileLength);
