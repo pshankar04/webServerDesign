@@ -531,6 +531,7 @@ public class SimpleServer {
 						long newfileLength = fileForLength.length();
 						System.out.println(" Authorization Length ;"+newfileLength);
 						if(headerMap.containsKey("Authorization") && confirmAuthorization(fileRequested,headerMap.get("Authorization"))){
+							System.out.println("HERE for AUTH");
 							rspAuth = "\""+rspAuth+"\"";
 							cnonceStringValue = "\""+cnonceStringValue+"\"";
 							out.print("HTTP/1.1 200 OK"+"\r\n");  									 
