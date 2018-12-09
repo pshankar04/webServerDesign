@@ -1323,7 +1323,7 @@ public class SimpleServer {
 						out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
 						out.print("Date: " +formatted+"\r\n"); 
 						out.print("Server: "+host+"\r\n");
-						out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce="+nonce+"\r\n");
+						out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop=\"auth\", nonce=\"+nonce+\"\r\n");
 						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n\r\n");		
