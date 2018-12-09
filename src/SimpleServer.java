@@ -321,7 +321,7 @@ public class SimpleServer {
 							out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\""+""+"\""+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Connection: close"+"\r\n\r\n"); 
-							out.print(getChunkedBytes("../public/a3-test/412.html"));
+							out.print(getChunkedBytes("../public/a4-test/401.html"));
 							out.print("\r\n\r\n");
 
 
@@ -393,7 +393,7 @@ public class SimpleServer {
 							out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\""+""+"\""+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Connection: close"+"\r\n\r\n"); 
-							out.print(getChunkedBytes("../public/a3-test/412.html"));
+							out.print(getChunkedBytes("../public/a4-test/401.html"));
 							out.print("\r\n\r\n");
 
 
@@ -570,6 +570,8 @@ public class SimpleServer {
 								out.print("Transfer-Encoding: chunked"+"\r\n");
 								out.print("Connection: close"+"\r\n"); 
 								out.print("\r\n\r\n");	
+								out.print(getChunkedBytes("../public/a4-test/401.html"));
+								out.print("\r\n\r\n");
 							}else{
 
 
@@ -581,6 +583,8 @@ public class SimpleServer {
 								out.print("Transfer-Encoding: chunked"+"\r\n");
 								out.print("Connection: close"+"\r\n"); 
 								out.print("\r\n\r\n");	
+								out.print(getChunkedBytes("../public/a4-test/401.html"));
+								out.print("\r\n\r\n");
 							}
 						}
 					}
@@ -1212,6 +1216,8 @@ public class SimpleServer {
 							out.print("Transfer-Encoding: chunked");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");	
+							out.print(getChunkedBytes("../public/a4-test/401.html"));
+							out.print("\r\n\r\n");
 						}else{
 							out.print("HTTP/1.1 401 Authorization Required"+"\r\n");  									 
 							out.print("Date: " +formatted+"\r\n"); 
@@ -1220,6 +1226,8 @@ public class SimpleServer {
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");	
+							out.print(getChunkedBytes("../public/a4-test/401.html"));
+							out.print("\r\n\r\n");
 						}
 					}else if(fileRequested.contains("a4-test/limited2")){
 						String nonce = generateNonce();
@@ -1230,6 +1238,8 @@ public class SimpleServer {
 						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n\r\n");	
+						out.print(getChunkedBytes("../public/a4-test/401.html"));
+						out.print("\r\n\r\n");
 					}
 
 
@@ -1328,6 +1338,8 @@ public class SimpleServer {
 						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n\r\n");		
+						out.print(getChunkedBytes("../public/a4-test/401.html"));
+						out.print("\r\n\r\n");
 					}else{
 						out.print("HTTP/1.1 200 OK\r\n");
 						out.print("Date: " +formatted+"\r\n"); 
