@@ -566,6 +566,7 @@ public class SimpleServer {
 								out.print("Server: "+host+"\r\n");
 								out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\""+nonce+"\""+"\r\n");
 								out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+								out.print("Transfer-Encoding: chunked"+"\r\n");
 								out.print("Connection: close"+"\r\n"); 
 								out.print("\r\n\r\n");	
 							}else{
@@ -576,6 +577,7 @@ public class SimpleServer {
 								out.print("Server: "+host+"\r\n");
 								out.print("WWW-Authenticate: Basic realm=\"Fried Twice\""+"\r\n");
 								out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+								out.print("Transfer-Encoding: chunked"+"\r\n");
 								out.print("Connection: close"+"\r\n"); 
 								out.print("\r\n\r\n");	
 							}
@@ -1205,6 +1207,7 @@ public class SimpleServer {
 							out.print("Server: "+host+"\r\n");
 							out.print("WWW-Authenticate: Digest realm=\"Colonial Place\", algorithm=\"MD5\", qop= \"auth\", nonce=\"+nonce+"+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+							out.print("Transfer-Encoding: chunked");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");	
 						}else{
