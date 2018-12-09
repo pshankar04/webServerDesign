@@ -1378,6 +1378,7 @@ public class SimpleServer {
 		file  = file.replace("../public","");
 		file = file.substring(0,file.indexOf("//")+2);
 		file = file.substring(file.indexOf("/"));
+		System.out.println("FILE : "+file);
 		if(file.contains("//")){
 			file = file.substring(file.indexOf("//")+2);
 			file = file.substring(file.indexOf("/"));
