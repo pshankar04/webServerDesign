@@ -1385,12 +1385,14 @@ public class SimpleServer {
 			file = file.substring(file.indexOf("//")+2);
 			file = file.substring(file.indexOf("/"));
 		}
+		
+		
+		if(!file.contains("../public")){
+			file = "../public" + file;
+		}
 		File f = new File(file);
 		if(f.isDirectory()){
 			return "";
-		}
-		if(!file.contains("../public")){
-			file = "../public" + file;
 		}
 		MessageDigest md = MessageDigest.getInstance("MD5");
 		md.update(Files.readAllBytes(Paths.get(file)));
