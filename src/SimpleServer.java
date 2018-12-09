@@ -1191,6 +1191,7 @@ public class SimpleServer {
 						out.print("Date: " +formatted+"\r\n"); 
 						out.print("Server: "+host+"\r\n");
 						out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
+						out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");
 						out.print("Content-Length: "+newfileLength+"\r\n");
 						out.print("Connection: close"+"\r\n"); 
 						out.print("\r\n\r\n");
