@@ -548,7 +548,7 @@ public class SimpleServer {
 							out.print("\r\n\r\n");
 							
 							
-							FileReader fr = new FileReader("../public/a4-test/limited1/protected");
+							FileReader fr = new FileReader(fileRequested);
 							BufferedReader br = new BufferedReader(fr);
 							String fileLine;
 							while ((fileLine = br.readLine()) != null) {
