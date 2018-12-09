@@ -543,6 +543,7 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");
+							System.out.println(" Authorization file  test;"+fileRequested);
 							if(fileRequested.endsWith("protected")){
 								out.print("<html><body>this file is protected</body></html>"+"\r\n\r\n");
 							}else{
