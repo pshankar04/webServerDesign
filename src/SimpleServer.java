@@ -544,15 +544,14 @@ public class SimpleServer {
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
-							out.print("\r\n");
+							out.print("\r\n\r\n");
 							
 							
 							FileReader fr = new FileReader("../public/a4-test/limited1/protected");
 							BufferedReader br = new BufferedReader(fr);
 							String fileLine;
 							while ((fileLine = br.readLine()) != null) {
-								System.out.println(fileLine+"\n");
-								dataOut.write((fileLine).getBytes());
+								out.print(fileLine+"\r\n");
 							}
 								
 //							}else if(fileRequested.contains("protected")){
