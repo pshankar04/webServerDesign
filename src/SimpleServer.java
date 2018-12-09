@@ -544,7 +544,7 @@ public class SimpleServer {
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
-							out.print("\r\n\r\n");
+							out.print("\r\n");
 							
 							//if(fileRequested.contains("protected2")){
 								out.print("this file is protected too!"+"\r\n\r\n");
