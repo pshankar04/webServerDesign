@@ -542,6 +542,7 @@ public class SimpleServer {
 							if(headerMap.get("Authorization").contains("Digest")){
 								out.print("Authentication-Info: rspauth="+rspAuth+",cnonce="+cnonceStringValue+", nc=00000001, qop=auth"+"\r\n");
 							}
+							out.print("ETag: "+"\""+generateETag(fileRequested)+"\""+"\r\n");
 							out.print("Content-Type: "+getContentType(fileRequested,"GET")+"; charset=iso-8859-1"+"\r\n");
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
