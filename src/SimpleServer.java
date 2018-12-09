@@ -1375,6 +1375,9 @@ public class SimpleServer {
 
 	public static String generateETag(String file) throws NoSuchAlgorithmException, IOException{
 		System.out.println("In ETag : "+file);
+		file  = file.replace("../public","");
+		file = file.substring(0,file.indexOf("//")+2);
+		file = file.substring(file.indexOf("/"));
 		if(file.contains("//")){
 			file = file.substring(file.indexOf("//")+2);
 			file = file.substring(file.indexOf("/"));
