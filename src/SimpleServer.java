@@ -546,8 +546,14 @@ public class SimpleServer {
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n");
 							
-							//if(fileRequested.contains("protected2")){
-								out.print("this file is protected too!"+"\r\n\r\n");
+							System.out.println("fileRequested in Protected :"+fileRequested);
+							FileReader fr = new FileReader("../public/a4-test/limited1/protected");
+							BufferedReader br = new BufferedReader(fr);
+							String fileLine;
+							while ((fileLine = br.readLine()) != null) {
+								System.out.println(fileLine+"\n");
+								dataOut.write((fileLine).getBytes());
+							}
 								
 //							}else if(fileRequested.contains("protected")){
 //								out.print("this file is protected"+"\r\n\r\n");
