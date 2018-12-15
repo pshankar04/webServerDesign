@@ -1,9 +1,11 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -66,6 +68,7 @@ public class SimpleServer {
 	public static int totalLengthForPartialContent = 0;
 	public static String rspAuth="";
 	public static String cnonceStringValue = "";
+	public static String fileContent = "";
 
 
 	public static void main(String args[]) throws SocketTimeoutException{
@@ -73,6 +76,9 @@ public class SimpleServer {
 		allowList.add("GET");
 		allowList.add("HEAD");
 		allowList.add("OPTIONS");
+		allowList.add("TRACE");
+		allowList.add("POST");
+		//		allowList.add("DELETE");
 
 		try {
 			int port = Integer.parseInt(args[0]);
@@ -123,11 +129,17 @@ public class SimpleServer {
 				if_modified_since = "";
 				if_match = "";
 				if_match_flag = false;
+				int lineCount = 0;
 
 				while ((line = in.readLine()) != null) {
 					System.out.println("LINE : "+line);
-					if (line.length() == 0)
+					if (line.length() == 0){
 						break;
+//						lineCount++;
+//						if(lineCount > 10){
+//							break;
+//						}
+					}
 					else{
 
 
@@ -137,7 +149,7 @@ public class SimpleServer {
 							headerMap.put("fileRequested",requestHeader[1]);
 							headerMap.put("httpVersion",requestHeader[2]);
 
-						}else if(line.contains(":") && count > 0) {
+						}else if(line.contains(":") && count > 0 && !line.contains(allowList.toString())) {
 							if(!headerMap.containsKey(line.split(": ")[0])){
 								headerMap.put(line.split(": ")[0],line.split(": ")[1]);
 							}else{
@@ -146,6 +158,7 @@ public class SimpleServer {
 						}
 
 						else {
+							fileContent = fileContent + line + "\n";
 							malformedHeader = true;
 							continue;				
 						}
@@ -527,7 +540,7 @@ public class SimpleServer {
 					}else if(needsAuthentication){
 						System.out.println(" Authorization file ;"+fileRequested);
 						fileRequested = fileRequested.replace("http://localhost:8090/", "../public/");
-							fileRequested = fileRequested.replace("http://cs531-pbikkasa/", "../public/");
+						fileRequested = fileRequested.replace("http://cs531-pbikkasa/", "../public/");
 						File fileForLength = new File(fileRequested);
 						long newfileLength = fileForLength.length();
 						System.out.println(" Authorization Length ;"+newfileLength);
@@ -547,18 +560,18 @@ public class SimpleServer {
 							out.print("Content-Length: "+newfileLength+"\r\n");
 							out.print("Connection: close"+"\r\n"); 
 							out.print("\r\n\r\n");
-							
-							
+
+
 							FileReader fr = new FileReader(fileRequested);
 							BufferedReader br = new BufferedReader(fr);
 							String fileLine;
 							while ((fileLine = br.readLine()) != null) {
 								out.print(fileLine+"\r\n");
 							}
-								
-//							}else if(fileRequested.contains("protected")){
-//								out.print("this file is protected"+"\r\n\r\n");
-//							}
+
+							//							}else if(fileRequested.contains("protected")){
+							//								out.print("this file is protected"+"\r\n\r\n");
+							//							}
 						}else{
 							String nonce = generateNonce();
 							if(fileRequested.contains("a4-test/limited2/foo/")){
@@ -1321,6 +1334,7 @@ public class SimpleServer {
 				}
 
 				if (method.equals("OPTIONS")) { 
+					System.out.println("WITHIN Options");
 					String allowedMethods = "";
 					for(String method: allowList){
 						allowedMethods = allowedMethods+method +",";
@@ -1345,24 +1359,80 @@ public class SimpleServer {
 						out.print("Date: " +formatted+"\r\n"); 
 						out.print("Server: "+host+"\r\n");					 
 						out.print("Content-Length:"+0+"\r\n");	
-						out.print("Allow: "+allowedMethods+"\r\n");	
-						if(keepAlive){
-							keepAliveStr = "Connection: keep-alive"+"\r\n"; 
-						}else{
-							keepAliveStr = "Connection: close"+"\r\n";  
-						}
-						out.print("Content-Type: "+content+"\r\n\r\n");
+						out.print("Allow: "+allowedMethods+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Connection: close"+"\r\n\r\n");  
 					}
 				}
 
-				//				if(!client.getKeepAlive() && !headerMap.containsKey("Range")){
-				//					out.print("HTTP/1.1 408 Request Timeout\r\n");
-				//					out.print("Date: " +formatted+"\r\n"); 
-				//					out.print("Server: "+host+"\r\n");					 
-				//					out.print("Connection: close"+"\r\n\r\n");
-				//				}
+				if (method.equals("DELETE")) { 
+					System.out.println("WITHIN Delete");
+					String allowedMethods = "";
+					for(String method: allowList){
+						allowedMethods = allowedMethods+method +", ";
+					}
+					allowedMethods = allowedMethods.substring(0,allowedMethods.length()-2);
+					File deleteFile = new File(fileRequested);
+					long fileLengthForDelete = file.length();
+
+					out.print("HTTP/1.1 405 Method Not Allowed\r\n");
+					out.print("Date: " +formatted+"\r\n"); 
+					out.print("Server: "+host+"\r\n");					 
+					out.print("Content-Length:"+fileLengthForDelete+"\r\n");
+					out.print("Content-Type: "+content+"\r\n");
+					out.print("Allow: "+allowedMethods+"\r\n");	
+					out.print("Connection: close"+"\r\n\r\n");  
+
+				}
+
+				if (method.equals("PUT")) { 
+					System.out.println("WITHIN Put :"+fileRequested);
+					String allowedMethods = "";
+					for(String method: allowList){
+						allowedMethods = allowedMethods+method +", ";
+					}
+					allowedMethods = allowedMethods + "DELETE";
+					//allowedMethods = allowedMethods.substring(0,allowedMethods.length()-2);
+				
+					
+					fileRequested = fileRequested.substring(fileRequested.lastIndexOf(":")+1);
+					fileRequested = fileRequested.substring(fileRequested.indexOf("/"));
+					fileRequested = "../public"+fileRequested;
+					File deleteFile = new File(fileRequested);
+					long fileLengthForDelete = file.length();
+					
+					System.out.println("WITHIN Put exists:"+deleteFile.exists());
+					
+					if(deleteFile.exists()){
+						//System.out.println("WITHIN exists");
+						
+						out.print("HTTP/1.1 201 Created"+"\r\n");
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");					 
+						out.print("Content-Length:"+fileLengthForDelete+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Allow: "+allowedMethods+"\r\n");	
+						out.print("Connection: close"+"\r\n\r\n");  
+					}
+					else{
+						out.print("HTTP/1.1 405 Method Not Allowed"+"\r\n");
+						out.print("Date: " +formatted+"\r\n"); 
+						out.print("Server: "+host+"\r\n");					 
+						out.print("Content-Length:"+fileLengthForDelete+"\r\n");
+						out.print("Content-Type: "+content+"\r\n");
+						out.print("Allow: "+allowedMethods+"\r\n");	
+						out.print("Connection: close"+"\r\n\r\n");  
+						
+						System.out.println(fileContent);
+						createResource(fileRequested,fileContent);
+					}
+
+					
+
+				}
 
 
+			//out.flush();
 				out.close();
 				dataOut.close();
 				in.close();
@@ -1388,6 +1458,30 @@ public class SimpleServer {
 
 	}
 
+	public static void createResource(String filePath, String content) throws IOException{
+
+
+		filePath = filePath.substring(filePath.lastIndexOf(":")+1);
+		filePath = filePath.substring(filePath.indexOf("/"));
+		filePath = "../public"+filePath;
+		System.out.println("FILE :"+filePath);
+		BufferedWriter output = null;
+		try {
+			File file = new File(filePath);
+			output = new BufferedWriter(new FileWriter(file));
+			output.write(content);
+		} catch ( IOException e ) {
+			e.printStackTrace();
+		} finally {
+			if ( output != null ) {
+				output.close();
+			}
+		}
+
+
+	}
+
+
 	private static String generateNonce() throws NoSuchAlgorithmException, NoSuchProviderException, IOException
 	{
 		String nonceString = Long.toString(new Date().getTime()) +":"+generateETag(fileRequested)+":"+"Puneeth";
@@ -1402,30 +1496,33 @@ public class SimpleServer {
 
 	public static String generateETag(String file) throws NoSuchAlgorithmException, IOException{
 		System.out.println("In ETag : "+file);
-//		if(file.contains("http://")){
-//			file  = file.replace("../public","");
-//			file = file.substring(file.indexOf("//")+2);
-//			file = file.substring(file.indexOf("/"));
-//		}
+		//		if(file.contains("http://")){
+		//			file  = file.replace("../public","");
+		//			file = file.substring(file.indexOf("//")+2);
+		//			file = file.substring(file.indexOf("/"));
+		//		}
 		System.out.println("FILE : "+file);
 		if(file.contains("//")){
 			file = file.substring(file.indexOf("//")+2);
 			file = file.substring(file.indexOf("/"));
 		}
-		
-		
+
+
 		if(!file.contains("../public")){
 			file = "../public" + file;
 		}
 		File f = new File(file);
 		if(f.isDirectory()){
 			return "";
+		}else if(f.exists()){
+			MessageDigest md = MessageDigest.getInstance("MD5");
+			md.update(Files.readAllBytes(Paths.get(file)));
+			byte[] digest = md.digest();
+			System.out.println("Etag : "+DatatypeConverter.printHexBinary(digest).toUpperCase());
+			return DatatypeConverter.printHexBinary(digest).toUpperCase();
+		}else{
+			return "";
 		}
-		MessageDigest md = MessageDigest.getInstance("MD5");
-		md.update(Files.readAllBytes(Paths.get(file)));
-		byte[] digest = md.digest();
-		System.out.println("Etag : "+DatatypeConverter.printHexBinary(digest).toUpperCase());
-		return DatatypeConverter.printHexBinary(digest).toUpperCase();
 	}
 
 	public static byte[] getPartialContent(String file,int numBytes) throws IOException{
